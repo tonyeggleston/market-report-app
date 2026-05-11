@@ -1,0 +1,7 @@
+node_modules/
+dist/
+out/
+build-resources/
+.env
+*.pem
+user-data/

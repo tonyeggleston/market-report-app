@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review Comps — Market Report</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .review-container { max-width: 1000px; margin: 0 auto; padding: 24px; }
+    .review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .review-header h1 { font-size: 22px; }
+    .summary-bar { background: #f0f4ff; border: 1px solid #dbeafe; border-radius: 10px; padding: 16px 20px; margin-bottom: 24px; display: flex; gap: 24px; flex-wrap: wrap; font-size: 14px; }
+    .summary-stat { text-align: center; }
+    .summary-stat .num { font-size: 24px; font-weight: 700; color: #1e40af; }
+    .summary-stat .label { color: #666; font-size: 12px; }
+
+    .comp-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; overflow: hidden; border-left: 4px solid #d1d5db; }
+    .comp-card.included { border-left-color: #16a34a; }
+    .comp-card.excluded { border-left-color: #dc2626; }
+    .comp-card.new-listing { border-left-color: #2563eb; }
+    .comp-card.status-change { border-left-color: #f59e0b; }
+
+    .comp-top { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; cursor: pointer; }
+    .comp-top:hover { background: #f9fafb; }
+    .comp-address { font-weight: 700; font-size: 16px; }
+    .comp-meta { font-size: 13px; color: #666; margin-top: 2px; }
+    .comp-badges { display: flex; gap: 6px; align-items: center; }
+    .badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+    .badge-include { background: #dcfce7; color: #166534; }
+    .badge-exclude { background: #fee2e2; color: #991b1b; }
+    .badge-new { background: #dbeafe; color: #1e40af; }
+    .badge-contract { background: #fef3c7; color: #92400e; }
+    .badge-score { background: #f3f4f6; color: #374151; }
+
+    .comp-toggle { display: flex; align-items: center; gap: 8px; }
+    .comp-toggle label { font-size: 13px; font-weight: 600; color: #374151; cursor: pointer; }
+    .comp-toggle input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
+
+    .comp-detail { display: none; padding: 0 20px 20px; }
+    .comp-detail.open { display: block; }
+
+    .photo-strip { display: flex; gap: 8px; overflow-x: auto; padding: 8px 0; }
+    .photo-strip img { height: 120px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+
+    .vision-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+    .vision-item { background: #f9fafb; border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+    .vision-item .vi-label { font-weight: 600; color: #374151; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .vision-item .vi-value { margin-top: 2px; color: #1a1a1a; }
+
+    .red-flags { margin: 8px 0; }
+    .red-flag-tag { display: inline-block; background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; margin: 2px 4px 2px 0; }
+
+    .reasoning-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px; font-size: 13px; margin: 8px 0; }
+
+    .description-edit { margin-top: 12px; }
+    .description-edit label { font-size: 13px; font-weight: 600; color: #374151; }
+    .description-edit textarea { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; font-family: inherit; margin-top: 4px; resize: vertical; }
+
+    .section-divider { font-size: 14px; font-weight: 700; color: #374151; margin: 24px 0 12px; padding: 8px 0; border-bottom: 2px solid #e5e7eb; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .finalize-bar { position: sticky; bottom: 0; background: #fff; border-top: 1px solid #e5e7eb; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 -2px 8px rgba(0,0,0,0.05); }
+    .finalize-bar .count-text { font-size: 14px; color: #666; }
+    .finalize-bar .count-text strong { color: #1a1a1a; }
+  </style>
+</head>
+<body>
+  <div class="review-container">
+    <div class="review-header">
+      <div>
+        <h1>Review Comparable Listings</h1>
+        <p style="color: #666; font-size: 14px; margin-top: 2px;">Check the AI's picks. Toggle any comp on/off. Edit descriptions before generating the email.</p>
+      </div>
+    </div>
+
+    <div class="summary-bar" id="summary-bar"></div>
+
+    <div id="comp-sections"></div>
+  </div>
+
+  <div class="finalize-bar">
+    <div class="count-text" id="count-text"></div>
+    <div style="display: flex; gap: 12px;">
+      <button class="btn btn-secondary" onclick="goBack()">Back to Dashboard</button>
+      <button class="btn btn-primary btn-large" onclick="finalizeReport()">Generate Email</button>
+    </div>
+  </div>
+
+  <script>
+    let reportData = null;
+
+    window.api.onReviewData((data) => {
+      reportData = data;
+      renderReview();
+    });
+
+    function renderReview() {
+      if (!reportData) return;
+      const { comps, visionResults, diff, metrics, compDescriptions, photosByMls, ourListing } = reportData;
+
+      const summaryBar = document.getElementById('summary-bar');
+      summaryBar.innerHTML = `
+        <div class="summary-stat"><div class="num">${comps.length}</div><div class="label">Total Listings</div></div>
+        <div class="summary-stat"><div class="num">${diff.summary.newCount}</div><div class="label">New</div></div>
+        <div class="summary-stat"><div class="num">${diff.summary.statusChangeCount}</div><div class="label">Status Changes</div></div>
+        <div class="summary-stat"><div class="num">${metrics.showingCount}</div><div class="label">Showings (2wk)</div></div>
+        <div class="summary-stat"><div class="num">${metrics.showingsPerListing}</div><div class="label">Market Avg</div></div>
+      `;
+
+      const sections = document.getElementById('comp-sections');
+      let html = '';
+
+      const ourMls = ourListing?.mlsNumber;
+      const newMls = new Set(diff.newListings.map(l => l.mlsNumber));
+      const changedMls = new Set(diff.statusChanges.map(l => l.mlsNumber));
+
+      if (diff.newListings.length) {
+        html += '<div class="section-divider">New Listings</div>';
+        for (const comp of diff.newListings) {
+          html += renderCompCard(comp, visionResults, compDescriptions, photosByMls, 'new-listing');
+        }
+      }
+
+      if (diff.statusChanges.length) {
+        html += '<div class="section-divider">Status Changes (Under Contract)</div>';
+        for (const comp of diff.statusChanges) {
+          html += renderCompCard(comp, visionResults, compDescriptions, photosByMls, 'status-change');
+        }
+      }
+
+      const otherComps = comps.filter(c =>
+        c.mlsNumber !== ourMls && !newMls.has(c.mlsNumber) && !changedMls.has(c.mlsNumber)
+      );
+      if (otherComps.length) {
+        html += '<div class="section-divider">Existing Comps</div>';
+        for (const comp of otherComps) {
+          html += renderCompCard(comp, visionResults, compDescriptions, photosByMls, '');
+        }
+      }
+
+      sections.innerHTML = html;
+      updateCount();
+    }
+
+    function renderCompCard(comp, visionResults, descriptions, photosByMls, extraClass) {
+      const vision = visionResults?.[comp.mlsNumber];
+      const included = vision?.includeRecommendation ?? true;
+      const cardClass = included ? 'included' : 'excluded';
+      const score = vision?.matchScore || '—';
+      const desc = descriptions?.[comp.mlsNumber] || '';
+      const photoCount = photosByMls?.[comp.mlsNumber]?.photoCount || 0;
+      const analysis = vision?.analysis || {};
+
+      let badges = '';
+      if (extraClass === 'new-listing') badges += '<span class="badge badge-new">New</span>';
+      if (extraClass === 'status-change') badges += `<span class="badge badge-contract">${comp.status}</span>`;
+      badges += `<span class="badge badge-score">Score: ${score}/10</span>`;
+      badges += included
+        ? '<span class="badge badge-include">Include</span>'
+        : '<span class="badge badge-exclude">Exclude</span>';
+
+      const redFlagHtml = (vision?.redFlags || []).length
+        ? `<div class="red-flags">${vision.redFlags.map(f => `<span class="red-flag-tag">${f}</span>`).join('')}</div>`
+        : '';
+
+      const kitchenHtml = analysis.kitchen
+        ? `<div class="vision-item"><div class="vi-label">Kitchen</div><div class="vi-value">${analysis.kitchen.update_level || '—'}${analysis.kitchen.white_cabinets ? ', white cabinets' : ''}${analysis.kitchen.stainless_appliances ? ', stainless' : ''}</div></div>`
+        : '';
+
+      const bathroomHtml = (analysis.bathrooms || []).map((b, i) =>
+        `<div class="vision-item"><div class="vi-label">Bathroom ${i + 1}</div><div class="vi-value">${b.update_level || '—'}, ${b.palette || '—'}${b.standalone_tub ? ', standalone tub' : ''}</div></div>`
+      ).join('');
+
+      const flooringHtml = analysis.flooring
+        ? `<div class="vision-item"><div class="vi-label">Flooring</div><div class="vi-value">${analysis.flooring.type || '—'}${analysis.flooring.consistent ? ', consistent' : ', inconsistent'}</div></div>`
+        : '';
+
+      const outdoorHtml = analysis.outdoor
+        ? `<div class="vision-item"><div class="vi-label">Outdoor</div><div class="vi-value">${analysis.outdoor.covered_patio ? 'Covered patio' : 'No covered patio'}, ${analysis.outdoor.pool ? 'Pool' : 'No pool'}, ${analysis.outdoor.backyard_size || '—'} yard</div></div>`
+        : '';
+
+      return `
+        <div class="comp-card ${cardClass} ${extraClass}" data-mls="${comp.mlsNumber}">
+          <div class="comp-top" onclick="toggleDetail('${comp.mlsNumber}')">
+            <div>
+              <div class="comp-address">${comp.address || comp.mlsNumber}</div>
+              <div class="comp-meta">${comp.sqft} sqft &bull; ${comp.yearBuilt} &bull; ${comp.lotAcres} acres &bull; ${comp.hasPool ? 'Pool' : 'No pool'} &bull; $${comp.price} &bull; ${comp.dom} DOM</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <div class="comp-badges">${badges}</div>
+              <div class="comp-toggle" onclick="event.stopPropagation()">
+                <input type="checkbox" id="inc-${comp.mlsNumber}" ${included ? 'checked' : ''} onchange="toggleInclude('${comp.mlsNumber}', this.checked)">
+                <label for="inc-${comp.mlsNumber}">Include</label>
+              </div>
+            </div>
+          </div>
+          <div class="comp-detail" id="detail-${comp.mlsNumber}">
+            <div class="photo-strip" id="photos-${comp.mlsNumber}">
+              <span style="color: #999; font-size: 13px;">${photoCount} photos analyzed</span>
+            </div>
+            <div class="vision-grid">
+              ${kitchenHtml}
+              ${bathroomHtml}
+              ${flooringHtml}
+              ${outdoorHtml}
+              <div class="vision-item"><div class="vi-label">Overall Update</div><div class="vi-value">${vision?.overallUpdateLevel || '—'}</div></div>
+              <div class="vision-item"><div class="vi-label">Palette</div><div class="vi-value">${analysis.palette?.modern_whites_grays ? 'Modern whites/grays' : analysis.palette?.dominant_colors?.join(', ') || '—'}</div></div>
+            </div>
+            ${redFlagHtml}
+            <div class="reasoning-box">
+              <strong>AI Reasoning:</strong> ${vision?.reasoning || 'No analysis available.'}
+            </div>
+            <div class="description-edit">
+              <label>Email Description (edit before sending):</label>
+              <textarea rows="3" id="desc-${comp.mlsNumber}" oninput="editDescription('${comp.mlsNumber}', this.value)">${desc}</textarea>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleDetail(mlsNumber) {
+      const el = document.getElementById(`detail-${mlsNumber}`);
+      el.classList.toggle('open');
+    }
+
+    function toggleInclude(mlsNumber, checked) {
+      const card = document.querySelector(`[data-mls="${mlsNumber}"]`);
+      card.classList.toggle('included', checked);
+      card.classList.toggle('excluded', !checked);
+
+      const badges = card.querySelectorAll('.badge-include, .badge-exclude');
+      badges.forEach(b => {
+        if (checked) { b.className = 'badge badge-include'; b.textContent = 'Include'; }
+        else { b.className = 'badge badge-exclude'; b.textContent = 'Exclude'; }
+      });
+
+      if (!window._overrides) window._overrides = {};
+      window._overrides[mlsNumber] = checked;
+      updateCount();
+    }
+
+    function editDescription(mlsNumber, value) {
+      if (!window._descEdits) window._descEdits = {};
+      window._descEdits[mlsNumber] = value;
+    }
+
+    function updateCount() {
+      const checkboxes = document.querySelectorAll('.comp-toggle input[type="checkbox"]');
+      let included = 0;
+      checkboxes.forEach(cb => { if (cb.checked) included++; });
+      document.getElementById('count-text').innerHTML = `<strong>${included}</strong> of ${checkboxes.length} comps included`;
+    }
+
+    async function finalizeReport() {
+      const result = await window.api.finalizeReport(
+        window._overrides || {},
+        window._descEdits || {}
+      );
+      if (result?.emailBody) {
+        window.api.showEmail(result.emailBody);
+      }
+    }
+
+    function goBack() {
+      window.api.goBack();
+    }
+  </script>
+</body>
+</html>

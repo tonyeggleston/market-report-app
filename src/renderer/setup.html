@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Market Report — Setup</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="setup-container">
+    <header class="setup-header">
+      <h1>Market Report Generator</h1>
+      <p class="subtitle">Let's get you set up. This only takes a minute.</p>
+      <div class="step-indicator">
+        <span class="step active" data-step="1">1</span>
+        <span class="step-line"></span>
+        <span class="step" data-step="2">2</span>
+        <span class="step-line"></span>
+        <span class="step" data-step="3">3</span>
+        <span class="step-line"></span>
+        <span class="step" data-step="4">4</span>
+        <span class="step-line"></span>
+        <span class="step" data-step="5">5</span>
+        <span class="step-line"></span>
+        <span class="step" data-step="6">6</span>
+      </div>
+    </header>
+
+    <!-- Step 1: MLS Credentials -->
+    <section class="wizard-step" id="step-1">
+      <h2>MLS Login (Matrix)</h2>
+      <p class="step-desc">Your credentials are encrypted and stored only on this computer. They never leave your machine.</p>
+      <div class="form-group">
+        <label for="mls-username">MLS Username</label>
+        <input type="text" id="mls-username" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label for="mls-password">MLS Password</label>
+        <input type="password" id="mls-password" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label for="mls-url">MLS Login URL</label>
+        <input type="url" id="mls-url" placeholder="https://matrix.ntreis.net" value="https://matrix.ntreis.net">
+        <small>The web address where you normally log in to MLS</small>
+      </div>
+      <div class="step-actions">
+        <button class="btn btn-primary" onclick="nextStep(2)">Next</button>
+      </div>
+    </section>
+
+    <!-- Step 2: BrokerBay Credentials -->
+    <section class="wizard-step hidden" id="step-2">
+      <h2>BrokerBay Login</h2>
+      <p class="step-desc">Same deal — encrypted, local only. BrokerBay requires your IP, which is why this app runs on your computer.</p>
+      <div class="form-group">
+        <label for="bb-username">BrokerBay Username / Email</label>
+        <input type="text" id="bb-username" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label for="bb-password">BrokerBay Password</label>
+        <input type="password" id="bb-password" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label for="bb-url">BrokerBay Login URL</label>
+        <input type="url" id="bb-url" placeholder="https://app.brokerbay.com" value="https://app.brokerbay.com">
+      </div>
+      <div class="step-actions">
+        <button class="btn btn-secondary" onclick="prevStep(1)">Back</button>
+        <button class="btn btn-primary" onclick="nextStep(3)">Next</button>
+      </div>
+    </section>
+
+    <!-- Step 3: Team Members to Exclude -->
+    <section class="wizard-step hidden" id="step-3">
+      <h2>Your Team</h2>
+      <p class="step-desc">Showings from your own team get excluded from the count (open houses, etc). Add each team member or brokerage name.</p>
+      <div class="form-group">
+        <label for="team-brokerage">Team Brokerage Name</label>
+        <input type="text" id="team-brokerage" placeholder="e.g. Keller Williams Lone Star DFW">
+        <small>Showings from agents at this brokerage will be flagged as team showings</small>
+      </div>
+      <div class="form-group">
+        <label>Team Member Names (one per line)</label>
+        <textarea id="team-members" rows="5" placeholder="Rebecca Smith&#10;Dawn Johnson&#10;Jordan Davis"></textarea>
+        <small>These names will also be excluded from the regular showing count</small>
+      </div>
+      <div class="step-actions">
+        <button class="btn btn-secondary" onclick="prevStep(2)">Back</button>
+        <button class="btn btn-primary" onclick="nextStep(4)">Next</button>
+      </div>
+    </section>
+
+    <!-- Step 4: Email Template -->
+    <section class="wizard-step hidden" id="step-4">
+      <h2>Your Report Email Template</h2>
+      <p class="step-desc">Paste your pre-typed email below. Use these placeholders and the app will fill them in automatically:</p>
+      <div class="placeholder-guide">
+        <code>{SHOWING_COUNT}</code> — showings in the past 2 weeks<br>
+        <code>{MARKET_SHOWINGS}</code> — avg showings per listing in the area<br>
+        <code>{DAYS_ON_MARKET}</code> — your listing's DOM<br>
+        <code>{AVG_DOM_ACTIVE}</code> — average DOM for active listings<br>
+        <code>{MAX_DOM_ACTIVE}</code> — max DOM for active listings<br>
+        <code>{MIN_DOM_ACTIVE}</code> — min DOM for active listings<br>
+        <code>{TOTAL_SHOWINGS}</code> — total showings since listing went live<br>
+        <code>{LIST_DATE}</code> — date the listing went live<br>
+        <code>{NEW_LISTINGS}</code> — details on new listings since last report<br>
+        <code>{STATUS_CHANGES}</code> — listings that went under contract<br>
+        <code>{AVG_DOM_CLOSED}</code> — average DOM for closed listings<br>
+        <code>{AVG_SOLD_PRICE}</code> — average sold price in the area<br>
+        <code>{SHOWING_FEEDBACK}</code> — agent feedback from showings<br>
+        <code>{OPEN_HOUSE_NOTES}</code> — open house feedback<br>
+        <code>{AGENT_NAME}</code> — the lead agent's name (e.g. Jordan)<br>
+      </div>
+      <div class="form-group">
+        <textarea id="email-template" rows="14" placeholder="We saw {SHOWING_COUNT} showings over the past two weeks versus the market saw {MARKET_SHOWINGS} showings per listing in your area.
+
+You have seen a total of {TOTAL_SHOWINGS} showings since going live on {LIST_DATE}.
+
+We have been on the market for {DAYS_ON_MARKET} days. The average days on market for active listings is {AVG_DOM_ACTIVE} with {MAX_DOM_ACTIVE} being the most and {MIN_DOM_ACTIVE} being the least.
+
+{NEW_LISTINGS}
+
+{STATUS_CHANGES}
+
+{SHOWING_FEEDBACK}
+
+{OPEN_HOUSE_NOTES}
+
+The average days on market for closed homes within the last 90 days is {AVG_DOM_CLOSED} with an average sales price of {AVG_SOLD_PRICE}.
+
+{AGENT_NAME} will reach out to you to discuss this if she hasn't already. Please let us know if you need anything."></textarea>
+      </div>
+      <div class="form-group">
+        <label for="agent-name">Lead Agent Name</label>
+        <input type="text" id="agent-name" placeholder="e.g. Jordan">
+      </div>
+      <div class="step-actions">
+        <button class="btn btn-secondary" onclick="prevStep(3)">Back</button>
+        <button class="btn btn-primary" onclick="nextStep(5)">Next</button>
+      </div>
+    </section>
+
+    <!-- Step 5: OpenRouter API Key -->
+    <section class="wizard-step hidden" id="step-5">
+      <h2>AI Vision Setup</h2>
+      <p class="step-desc">This is what lets the app visually inspect listing photos and judge update levels — just like you do manually. It costs roughly $0.50–$1.00 per report. Follow the steps below to get set up (takes about 2 minutes).</p>
+
+      <div style="background: #f0f4ff; border: 1px solid #dbeafe; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+        <h3 style="margin: 0 0 16px; font-size: 16px; color: #1e40af;">Step-by-step: Create your OpenRouter account</h3>
+
+        <div style="display: flex; gap: 12px; margin-bottom: 14px;">
+          <span style="background: #2563eb; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0;">1</span>
+          <div>
+            <strong>Go to OpenRouter</strong><br>
+            <span style="font-size: 13px; color: #555;">Open your web browser and go to <strong>openrouter.ai</strong></span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-bottom: 14px;">
+          <span style="background: #2563eb; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0;">2</span>
+          <div>
+            <strong>Create a free account</strong><br>
+            <span style="font-size: 13px; color: #555;">Click <strong>"Sign Up"</strong> in the top right. You can sign up with your Google account or email — whichever is easiest.</span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-bottom: 14px;">
+          <span style="background: #2563eb; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0;">3</span>
+          <div>
+            <strong>Add credits</strong><br>
+            <span style="font-size: 13px; color: #555;">Once logged in, click your <strong>profile icon</strong> (top right) then <strong>"Credits"</strong>. Add <strong>$5</strong> to start — that's enough for several reports. You can always add more later. It accepts any credit or debit card.</span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-bottom: 14px;">
+          <span style="background: #2563eb; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0;">4</span>
+          <div>
+            <strong>Create an API key</strong><br>
+            <span style="font-size: 13px; color: #555;">Click your <strong>profile icon</strong> again, then <strong>"Keys"</strong>. Click <strong>"Create Key"</strong>. Give it any name you like (e.g. "Market Reports"). A long code starting with <strong>sk-or-v1-</strong> will appear.</span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px;">
+          <span style="background: #2563eb; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0;">5</span>
+          <div>
+            <strong>Copy and paste the key below</strong><br>
+            <span style="font-size: 13px; color: #555;">Click the <strong>copy button</strong> next to your new key, then paste it into the field below. You only need to do this once — the app saves it securely on your computer.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="openrouter-key">Paste your API Key here</label>
+        <input type="password" id="openrouter-key" placeholder="sk-or-v1-..." style="font-family: monospace;">
+        <small>Your key is encrypted and stored only on this computer. It never leaves your machine.</small>
+      </div>
+
+      <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #166534; margin-bottom: 16px;">
+        <strong>How much does it cost?</strong> Each report analyzes about 10–20 listings worth of photos. That typically costs $0.50–$1.00 per report using the default model (Gemini 2.5 Flash). A $5 credit balance will last several reports.
+      </div>
+
+      <div class="form-group" style="margin-top: 8px;">
+        <label for="openrouter-model">Vision Model (don't change this unless told to)</label>
+        <input type="text" id="openrouter-model" placeholder="google/gemini-2.5-flash" value="google/gemini-2.5-flash">
+      </div>
+      <div class="step-actions">
+        <button class="btn btn-secondary" onclick="prevStep(4)">Back</button>
+        <button class="btn btn-primary" onclick="nextStep(6)">Next</button>
+      </div>
+    </section>
+
+    <!-- Step 6: Review & Finish -->
+    <section class="wizard-step hidden" id="step-6">
+      <h2>You're All Set</h2>
+      <p class="step-desc">Here's what we've got. You can always change these later in Settings.</p>
+      <div class="review-box" id="review-summary"></div>
+      <div class="step-actions">
+        <button class="btn btn-secondary" onclick="prevStep(5)">Back</button>
+        <button class="btn btn-primary" onclick="finishSetup()">Start Using the App</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    let currentStep = 1;
+
+    function nextStep(step) {
+      document.getElementById(`step-${currentStep}`).classList.add('hidden');
+      document.getElementById(`step-${step}`).classList.remove('hidden');
+      document.querySelector(`.step[data-step="${currentStep}"]`).classList.remove('active');
+      document.querySelector(`.step[data-step="${step}"]`).classList.add('active');
+
+      for (let i = 1; i < step; i++) {
+        document.querySelector(`.step[data-step="${i}"]`).classList.add('done');
+      }
+
+      currentStep = step;
+
+      if (step === 6) buildReview();
+    }
+
+    function prevStep(step) {
+      document.getElementById(`step-${currentStep}`).classList.add('hidden');
+      document.getElementById(`step-${step}`).classList.remove('hidden');
+      document.querySelector(`.step[data-step="${currentStep}"]`).classList.remove('active');
+      document.querySelector(`.step[data-step="${step}"]`).classList.add('active');
+      currentStep = step;
+    }
+
+    function buildReview() {
+      const summary = document.getElementById('review-summary');
+      const mlsUser = document.getElementById('mls-username').value;
+      const bbUser = document.getElementById('bb-username').value;
+      const teamBrokerage = document.getElementById('team-brokerage').value;
+      const members = document.getElementById('team-members').value.split('\n').filter(Boolean);
+      const agentName = document.getElementById('agent-name').value;
+      const hasTemplate = document.getElementById('email-template').value.length > 20;
+      const hasApiKey = document.getElementById('openrouter-key').value.length > 10;
+      const model = document.getElementById('openrouter-model').value;
+
+      summary.innerHTML = `
+        <div class="review-row"><strong>MLS Login:</strong> ${mlsUser || '(not set)'}</div>
+        <div class="review-row"><strong>BrokerBay Login:</strong> ${bbUser || '(not set)'}</div>
+        <div class="review-row"><strong>Team Brokerage:</strong> ${teamBrokerage || '(not set)'}</div>
+        <div class="review-row"><strong>Team Members:</strong> ${members.length ? members.join(', ') : '(none)'}</div>
+        <div class="review-row"><strong>Lead Agent:</strong> ${agentName || '(not set)'}</div>
+        <div class="review-row"><strong>Email Template:</strong> ${hasTemplate ? 'Provided' : 'Using default'}</div>
+        <div class="review-row"><strong>AI Vision:</strong> ${hasApiKey ? 'Configured' : '(not set — photo analysis will be skipped)'}</div>
+        <div class="review-row"><strong>Vision Model:</strong> ${model || 'google/gemini-2.5-flash'}</div>
+      `;
+    }
+
+    async function finishSetup() {
+      const config = {
+        mlsUsername: document.getElementById('mls-username').value,
+        mlsPassword: document.getElementById('mls-password').value,
+        mlsUrl: document.getElementById('mls-url').value,
+        brokerBayUsername: document.getElementById('bb-username').value,
+        brokerBayPassword: document.getElementById('bb-password').value,
+        brokerBayUrl: document.getElementById('bb-url').value,
+        teamBrokerage: document.getElementById('team-brokerage').value,
+        teamMembers: document.getElementById('team-members').value.split('\n').filter(Boolean),
+        emailTemplate: document.getElementById('email-template').value || document.getElementById('email-template').placeholder,
+        agentName: document.getElementById('agent-name').value,
+        openrouterApiKey: document.getElementById('openrouter-key').value,
+        openrouterModel: document.getElementById('openrouter-model').value || 'google/gemini-2.5-flash',
+      };
+
+      await window.api.completeSetup(config);
+    }
+  </script>
+</body>
+</html>

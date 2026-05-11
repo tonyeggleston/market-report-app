@@ -1,0 +1,66 @@
+{
+  "name": "market-report-app",
+  "version": "0.1.0",
+  "description": "Automated biweekly real estate market reports — MLS + BrokerBay",
+  "main": "src/main/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "copy-chromium": "node scripts/copy-chromium.js",
+    "rebuild-sqlite": "electron-rebuild -f -w better-sqlite3",
+    "prebuild": "npm run copy-chromium",
+    "build": "electron-builder --win",
+    "build:dir": "electron-builder --win --dir"
+  },
+  "author": "Tony Eggleston",
+  "license": "PRIVATE",
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^25.1.8",
+    "electron-rebuild": "^3.2.9"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "playwright": "^1.52.0"
+  },
+  "build": {
+    "appId": "com.market-report-app.desktop",
+    "productName": "Market Report Generator",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build-resources/chromium",
+        "to": "chromium",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "src/renderer/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Market Report Generator"
+    },
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**"
+    ]
+  }
+}
