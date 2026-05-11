@@ -8,17 +8,15 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "copy-chromium": "node scripts/copy-chromium.js",
-    "rebuild-sqlite": "electron-rebuild -f -w better-sqlite3",
     "prebuild": "npm run copy-chromium",
-    "build": "electron-builder --win",
-    "build:dir": "electron-builder --win --dir"
+    "build": "electron-builder --win --publish never",
+    "build:dir": "electron-builder --win --dir --publish never"
   },
   "author": "Tony Eggleston",
   "license": "PRIVATE",
   "devDependencies": {
     "electron": "^35.0.0",
-    "electron-builder": "^25.1.8",
-    "electron-rebuild": "^3.2.9"
+    "electron-builder": "^25.1.8"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",

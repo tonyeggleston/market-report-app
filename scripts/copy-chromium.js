@@ -23,24 +23,36 @@ const searchDirs = [
   process.env.PLAYWRIGHT_BROWSERS_PATH,
 ].filter(Boolean);
 
-function findChromium() {
+function findBrowserDir(preferFull) {
   for (const dir of searchDirs) {
     if (!fs.existsSync(dir)) continue;
-    const entries = fs.readdirSync(dir)
-      .filter(e => e.startsWith('chromium'))
-      .sort()
-      .reverse();
-    if (entries.length) return path.join(dir, entries[0]);
+    const entries = fs.readdirSync(dir).filter(e => e.startsWith('chromium'));
+
+    if (preferFull) {
+      const fullBrowser = entries
+        .filter(e => !e.includes('headless_shell'))
+        .sort().reverse();
+      if (fullBrowser.length) return path.join(dir, fullBrowser[0]);
+    }
+
+    const headlessShell = entries
+      .filter(e => e.includes('headless_shell'))
+      .sort().reverse();
+    if (headlessShell.length) return path.join(dir, headlessShell[0]);
+
+    const any = entries.sort().reverse();
+    if (any.length) return path.join(dir, any[0]);
   }
   return null;
 }
 
-let browserPath = findChromium();
+// Prefer the full chromium browser; fall back to headless shell
+let browserPath = findBrowserDir(true);
 
 if (!browserPath) {
   console.log('Chromium not found locally. Installing via Playwright...');
   execSync('npx playwright install chromium', { cwd: projectRoot, stdio: 'inherit' });
-  browserPath = findChromium();
+  browserPath = findBrowserDir(true);
 }
 
 if (!browserPath) {
@@ -56,12 +68,13 @@ console.log(`Dest:   ${destDir}`);
 
 fs.cpSync(browserPath, destDir, { recursive: true });
 
+// Find all executables so we know what browser-path.js should look for
 const allExes = [];
 function walkForExe(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) walkForExe(full);
-    else if (entry.name === 'chrome.exe' || entry.name === 'chromium' || entry.name === 'chromium.exe')
+    else if (/^(chrome|chromium|chrome-headless-shell)(\.exe)?$/.test(entry.name))
       allExes.push(path.relative(destDir, full));
   }
 }
@@ -70,7 +83,7 @@ walkForExe(destDir);
 if (allExes.length) {
   console.log('Browser executables found:', allExes.join(', '));
 } else {
-  console.warn('WARNING: No chrome/chromium executable found in bundle. Check browser-path.js paths.');
+  console.warn('WARNING: No browser executable found in bundle.');
 }
 
 const totalSize = parseInt(execSync(

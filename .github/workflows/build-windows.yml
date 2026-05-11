@@ -20,12 +20,11 @@ jobs:
 
       - name: Install Playwright Chromium
         run: npx playwright install chromium
+        env:
+          PLAYWRIGHT_CHROMIUM_DOWNLOAD_HOSTS: default
 
       - name: Copy Chromium into bundle
         run: node scripts/copy-chromium.js
-
-      - name: Rebuild native modules for Electron
-        run: npx electron-rebuild -f -w better-sqlite3
 
       - name: Build Windows installer
         run: npm run build

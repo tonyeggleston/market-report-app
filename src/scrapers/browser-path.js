@@ -4,6 +4,9 @@ import { app } from 'electron';
 
 let cachedPath = null;
 
+const EXE_NAMES_WIN = ['chrome.exe', 'chromium.exe', 'chrome-headless-shell.exe'];
+const EXE_NAMES_UNIX = ['chrome', 'chromium', 'chrome-headless-shell'];
+
 function findExeRecursive(dir, names) {
   try {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -15,7 +18,7 @@ function findExeRecursive(dir, names) {
         return full;
       }
     }
-  } catch { /* permission errors, etc */ }
+  } catch { /* permission errors */ }
   return null;
 }
 
@@ -30,10 +33,7 @@ export function getChromiumPath() {
     throw new Error('Bundled Chromium folder not found at: ' + chromiumDir);
   }
 
-  const exeNames = process.platform === 'win32'
-    ? ['chrome.exe', 'chromium.exe']
-    : ['chrome', 'chromium'];
-
+  const exeNames = process.platform === 'win32' ? EXE_NAMES_WIN : EXE_NAMES_UNIX;
   cachedPath = findExeRecursive(chromiumDir, exeNames);
 
   if (!cachedPath) {
