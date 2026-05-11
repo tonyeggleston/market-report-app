@@ -160,18 +160,25 @@ function registerIpcHandlers() {
     return { ok: true };
   });
 
-  ipcMain.handle('email:show', (_event, emailBody) => {
+  ipcMain.handle('email:show', (_event, emailData) => {
     mainWindow.loadFile(
       path.join(__dirname, '..', 'renderer', 'dashboard.html')
     );
     mainWindow.webContents.once('did-finish-load', () => {
-      mainWindow.webContents.send('email:ready', emailBody);
+      mainWindow.webContents.send('email:ready', emailData);
     });
     return { ok: true };
   });
 
-  ipcMain.handle('email:copy', (_event, text) => {
-    clipboard.writeText(text);
+  ipcMain.handle('email:copy', (_event, data) => {
+    if (data.html) {
+      clipboard.write({
+        text: data.text || '',
+        html: data.html,
+      });
+    } else {
+      clipboard.writeText(data.text || data);
+    }
     return { ok: true };
   });
 

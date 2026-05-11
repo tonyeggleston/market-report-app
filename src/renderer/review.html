@@ -256,8 +256,11 @@
         window._overrides || {},
         window._descEdits || {}
       );
-      if (result?.emailBody) {
-        window.api.showEmail(result.emailBody);
+      if (result?.emailBody || result?.emailHtml) {
+        window.api.showEmail({
+          text: result.emailBody,
+          html: result.emailHtml,
+        });
       }
     }
 

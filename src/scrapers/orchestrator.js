@@ -256,7 +256,7 @@ export async function finalizeReport(listingAddress, reportData, compOverrides, 
     })
     .map((c) => c.mlsNumber);
 
-  const emailBody = buildEmail(config, {
+  const email = buildEmail(config, {
     metrics: reportData.metrics,
     totalShowings: reportData.totalShowings,
     listDate: reportData.listDate,
@@ -266,6 +266,7 @@ export async function finalizeReport(listingAddress, reportData, compOverrides, 
     feedback: reportData.showingData.feedback,
     closedStats: {},
     openHouseNotes: '',
+    photosByMls: reportData.photosByMls,
   });
 
   const result = db.prepare(
@@ -273,7 +274,7 @@ export async function finalizeReport(listingAddress, reportData, compOverrides, 
   ).run(
     listingAddress,
     JSON.stringify(reportData),
-    emailBody,
+    email.plainText,
     reportData.cmaPdfPath || null,
     reportData.subjectProfile ? JSON.stringify(reportData.subjectProfile) : null
   );
@@ -350,5 +351,5 @@ export async function finalizeReport(listingAddress, reportData, compOverrides, 
     reportData.totalShowings
   );
 
-  return { emailBody, reportId };
+  return { emailBody: email.plainText, emailHtml: email.html, reportId };
 }
