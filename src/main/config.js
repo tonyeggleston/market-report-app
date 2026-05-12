@@ -2,6 +2,7 @@ import { app } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { execSync } from 'node:child_process';
 
 const CONFIG_DIR = path.join(app.getPath('userData'), 'market-report');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.enc');
@@ -19,7 +20,15 @@ function getEncryptionKey() {
     return fs.readFileSync(KEY_FILE);
   }
   const key = crypto.randomBytes(32);
-  fs.writeFileSync(KEY_FILE, key, { mode: 0o600 });
+  fs.writeFileSync(KEY_FILE, key);
+  // On Windows, hide the key file to discourage casual access
+  if (process.platform === 'win32') {
+    try {
+      execSync(`attrib +H "${KEY_FILE}"`, { stdio: 'ignore' });
+    } catch { /* best effort */ }
+  } else {
+    try { fs.chmodSync(KEY_FILE, 0o600); } catch { /* best effort */ }
+  }
   return key;
 }
 

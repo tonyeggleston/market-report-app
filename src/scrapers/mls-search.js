@@ -85,8 +85,11 @@ export async function extractCompRows(page, onProgress) {
           return false;
         })(),
         dom: (() => {
-          for (const cell of cells) {
-            const t = getText(cell);
+          // Look for DOM in later columns (typically after price/sqft/year/lot)
+          // Skip early columns that contain MLS#, address, status, price, sqft, yearBuilt, lotAcres
+          const startIdx = Math.min(7, cells.length - 1);
+          for (let ci = startIdx; ci < cells.length; ci++) {
+            const t = getText(cells[ci]);
             if (/^\d+$/.test(t) && parseInt(t) < 500) return parseInt(t);
           }
           return 0;

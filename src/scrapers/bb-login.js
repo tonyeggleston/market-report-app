@@ -46,6 +46,22 @@ export async function loginToBrokerBay(page, config, onProgress) {
   }
 
   await page.waitForNavigation({ waitUntil: 'networkidle', timeout: 30000 });
+
+  // Validate login succeeded
+  const loginFailed = await page.evaluate(() => {
+    const errorEl = document.querySelector(
+      '[class*="error"], [class*="Error"], .alert-danger, [class*="invalid"], [role="alert"]'
+    );
+    if (errorEl && errorEl.textContent.trim()) return errorEl.textContent.trim();
+    const passField = document.querySelector('input[type="password"]');
+    if (passField && passField.offsetParent !== null) return 'Login page still visible — credentials may be wrong.';
+    return null;
+  });
+
+  if (loginFailed) {
+    throw new Error(`BrokerBay login failed: ${loginFailed}`);
+  }
+
   onProgress('Logging into BrokerBay...', 'Logged in');
   return page;
 }

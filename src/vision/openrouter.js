@@ -22,7 +22,7 @@ export async function callVisionModel(content, config) {
     temperature: 0.1,
   });
 
-  const response = await postJson(OPENROUTER_API_URL, body, apiKey);
+  const response = await postJsonWithRetry(OPENROUTER_API_URL, body, apiKey);
   return response.choices?.[0]?.message?.content || '';
 }
 
@@ -46,8 +46,30 @@ export async function callTextModel(prompt, config) {
     temperature: 0.3,
   });
 
-  const response = await postJson(OPENROUTER_API_URL, body, apiKey);
+  const response = await postJsonWithRetry(OPENROUTER_API_URL, body, apiKey);
   return response.choices?.[0]?.message?.content || '';
+}
+
+async function postJsonWithRetry(url, body, apiKey, maxRetries = 3) {
+  let lastError;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await postJson(url, body, apiKey);
+    } catch (err) {
+      lastError = err;
+      const msg = err.message || '';
+      // Only retry on transient errors (timeouts, 429, 5xx)
+      const isTransient = msg.includes('timed out') ||
+        msg.includes('429') ||
+        msg.includes('500') || msg.includes('502') ||
+        msg.includes('503') || msg.includes('504') ||
+        msg.includes('ECONNRESET') || msg.includes('ETIMEDOUT');
+      if (!isTransient || attempt === maxRetries - 1) throw err;
+      // Exponential backoff: 2s, 4s
+      await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+    }
+  }
+  throw lastError;
 }
 
 function postJson(url, body, apiKey) {

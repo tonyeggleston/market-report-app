@@ -30,8 +30,8 @@ export async function runPriceOnlySearch(page, priceMin, priceMax, onProgress) {
     'input[name*="priceMax"], input[name*="PriceMax"], input[name*="price_max"], input[id*="priceMax"], input[id*="PriceMax"], input[placeholder*="Max"]'
   );
 
-  if (priceMinField) await priceMinField.fill(String(Math.round(priceMin * 1000)));
-  if (priceMaxField) await priceMaxField.fill(String(Math.round(priceMax * 1000)));
+  if (priceMinField) await priceMinField.fill(String(Math.round(priceMin)));
+  if (priceMaxField) await priceMaxField.fill(String(Math.round(priceMax)));
 
   const resultsBtn = await page.$(
     'button:has-text("Results"), input[value="Results"], a:has-text("Results")'

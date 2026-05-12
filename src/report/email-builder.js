@@ -252,10 +252,7 @@ function buildFeedbackPlain(feedback) {
 
 function formatPrice(price) {
   if (!price) return '$—';
-  if (price >= 1000) {
-    return `$${price.toLocaleString()}`;
-  }
-  return `$${(price * 1000).toLocaleString()}`;
+  return `$${Number(price).toLocaleString()}`;
 }
 
 function getDefaultTemplate() {

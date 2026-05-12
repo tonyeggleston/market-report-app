@@ -46,6 +46,23 @@ export async function loginToMls(page, config, onProgress) {
   }
 
   await page.waitForNavigation({ waitUntil: 'networkidle', timeout: 30000 });
+
+  // Validate login succeeded — check for error messages or still being on the login page
+  const loginFailed = await page.evaluate(() => {
+    const errorEl = document.querySelector(
+      '[class*="error"], [class*="Error"], .alert-danger, [class*="invalid"], [role="alert"]'
+    );
+    if (errorEl && errorEl.textContent.trim()) return errorEl.textContent.trim();
+    // If we're still on a page with a password field, login likely failed
+    const passField = document.querySelector('input[type="password"]');
+    if (passField && passField.offsetParent !== null) return 'Login page still visible — credentials may be wrong.';
+    return null;
+  });
+
+  if (loginFailed) {
+    throw new Error(`MLS login failed: ${loginFailed}`);
+  }
+
   onProgress('Logging into MLS...', 'Logged in');
   return page;
 }

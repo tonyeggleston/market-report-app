@@ -77,15 +77,20 @@ export async function pullShowings(page, config, listingAddress, lastReportDate,
       (teamBrokerage && s.brokerage.toLowerCase().includes(teamBrokerage)) ||
       teamMembers.some((name) => s.agentName.toLowerCase().includes(name));
 
+    // Parse the showing date for cutoff filtering
+    const showingDate = s.date ? new Date(s.date) : null;
+    const isRecent = showingDate ? showingDate >= cutoffDate : true; // include if unparseable
+
     return {
       ...s,
       isTeam,
       isConfirmed: s.status === 'confirmed',
+      isRecent,
     };
   });
 
-  const recentConfirmed = showings.filter((s) => s.isConfirmed && !s.isTeam);
-  const recentTeam = showings.filter((s) => s.isTeam && s.isConfirmed);
+  const recentConfirmed = showings.filter((s) => s.isConfirmed && !s.isTeam && s.isRecent);
+  const recentTeam = showings.filter((s) => s.isTeam && s.isConfirmed && s.isRecent);
   const allConfirmed = showings.filter((s) => s.isConfirmed);
   const totalNonTeam = allConfirmed.filter((s) => !s.isTeam).length;
   const denied = showings.filter((s) => s.status === 'denied');

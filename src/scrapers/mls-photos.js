@@ -78,25 +78,34 @@ export async function downloadListingPhotos(page, mlsNumber, outputDir, onProgre
   return { mlsNumber, photos, photoDir };
 }
 
-function downloadFile(url, dest) {
+function downloadFile(url, dest, redirectCount = 0) {
+  if (redirectCount > 5) {
+    return Promise.reject(new Error('Too many redirects'));
+  }
+
   return new Promise((resolve, reject) => {
     const client = url.startsWith('https') ? https : http;
-    const file = fs.createWriteStream(dest);
 
     client.get(url, { timeout: 10000 }, (response) => {
       if (response.statusCode === 301 || response.statusCode === 302) {
-        downloadFile(response.headers.location, dest).then(resolve).catch(reject);
+        response.resume(); // drain the response
+        downloadFile(response.headers.location, dest, redirectCount + 1).then(resolve).catch(reject);
         return;
       }
       if (response.statusCode !== 200) {
-        fs.unlinkSync(dest);
+        response.resume();
         reject(new Error(`HTTP ${response.statusCode}`));
         return;
       }
+      const file = fs.createWriteStream(dest);
       response.pipe(file);
       file.on('finish', () => { file.close(); resolve(); });
+      file.on('error', (err) => {
+        fs.unlink(dest, () => {}); // async cleanup, ignore errors
+        reject(err);
+      });
     }).on('error', (err) => {
-      if (fs.existsSync(dest)) fs.unlinkSync(dest);
+      fs.unlink(dest, () => {}); // async cleanup, ignore errors
       reject(err);
     });
   });

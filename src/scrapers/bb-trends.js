@@ -126,8 +126,8 @@ export async function pullMarketTrends(page, config, neighborhoodName, priceRang
     'input[name*="priceMax"], input[name*="max_price"], input[placeholder*="Max Price"], input[placeholder*="Max"]'
   );
 
-  if (minPriceInput) await minPriceInput.fill(String(Math.round(priceRange.min * 1000)));
-  if (maxPriceInput) await maxPriceInput.fill(String(Math.round(priceRange.max * 1000)));
+  if (minPriceInput) await minPriceInput.fill(String(Math.round(priceRange.min)));
+  if (maxPriceInput) await maxPriceInput.fill(String(Math.round(priceRange.max)));
 
   const saveBtn = await page.$(
     'button:has-text("Save"), button:has-text("Apply"), button:has-text("Submit"), button:has-text("Update")'

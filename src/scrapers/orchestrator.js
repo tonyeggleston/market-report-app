@@ -44,9 +44,6 @@ export async function runReport(listingAddress, onProgress) {
     );
 
     let listDate = null;
-    if (ourListing) {
-      listDate = await getOurListingDate(mlsPage, ourListing.mlsNumber);
-    }
 
     // Download photos for every listing
     onProgress('Downloading photos...', `${comps.length} listings to photograph`);
@@ -69,6 +66,11 @@ export async function runReport(listingAddress, onProgress) {
       if (comp.mlsNumber === ourListing?.mlsNumber && detail.listDate) {
         listDate = detail.listDate;
       }
+    }
+
+    // If we didn't get listDate from detail extraction, fetch it explicitly
+    if (!listDate && ourListing) {
+      listDate = await getOurListingDate(mlsPage, ourListing.mlsNumber);
     }
 
     // ═══════════════════════════════════════════
@@ -108,8 +110,6 @@ export async function runReport(listingAddress, onProgress) {
 
     // Phase 7: MLS price-only re-search to count actives for BrokerBay comparison
     const priceSearchResult = await runPriceOnlySearch(mlsPage, priceRange.min, priceRange.max, onProgress);
-
-    await mlsBrowser.close();
 
     // ═══════════════════════════════════════════
     // PHASE 5–6: BrokerBay
@@ -228,9 +228,8 @@ export async function runReport(listingAddress, onProgress) {
       outputDir,
       needsReview: true,
     };
-  } catch (err) {
+  } finally {
     await mlsBrowser.close().catch(() => {});
-    throw err;
   }
 }
 
