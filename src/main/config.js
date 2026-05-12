@@ -1,8 +1,7 @@
-import { app } from 'electron';
+import { app, safeStorage } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { execSync } from 'node:child_process';
 
 const CONFIG_DIR = path.join(app.getPath('userData'), 'market-report');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.enc');
@@ -14,22 +13,54 @@ function ensureDir() {
   }
 }
 
+// ─── Preferred: Electron safeStorage (DPAPI on Windows, Keychain on macOS) ───
+
+function useSafeStorage() {
+  return safeStorage.isEncryptionAvailable();
+}
+
+// ─── Fallback: AES-256-GCM with key file (Linux without keyring) ───
+
 function getEncryptionKey() {
   ensureDir();
   if (fs.existsSync(KEY_FILE)) {
     return fs.readFileSync(KEY_FILE);
   }
   const key = crypto.randomBytes(32);
-  fs.writeFileSync(KEY_FILE, key);
-  // On Windows, hide the key file to discourage casual access
-  if (process.platform === 'win32') {
-    try {
-      execSync(`attrib +H "${KEY_FILE}"`, { stdio: 'ignore' });
-    } catch { /* best effort */ }
-  } else {
-    try { fs.chmodSync(KEY_FILE, 0o600); } catch { /* best effort */ }
-  }
+  fs.writeFileSync(KEY_FILE, key, { mode: 0o600 });
   return key;
+}
+
+function encryptGcm(plaintext) {
+  const key = getEncryptionKey();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  // Format: [12-byte IV][16-byte auth tag][ciphertext]
+  return Buffer.concat([iv, tag, encrypted]);
+}
+
+function decryptGcm(raw) {
+  const key = getEncryptionKey();
+  if (raw.length < 29) return null; // 12 + 16 + at least 1 byte
+  const iv = raw.subarray(0, 12);
+  const tag = raw.subarray(12, 28);
+  const encrypted = raw.subarray(28);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
+}
+
+// ─── Legacy AES-256-CBC (read-only, for migration from old format) ───
+
+function decryptLegacyCbc(raw) {
+  const key = getEncryptionKey();
+  if (raw.length < 17) return null;
+  const iv = raw.subarray(0, 16);
+  const encrypted = raw.subarray(16);
+  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
 }
 
 export function getConfig() {
@@ -37,30 +68,60 @@ export function getConfig() {
   if (!fs.existsSync(CONFIG_FILE)) return null;
 
   try {
-    const key = getEncryptionKey();
     const raw = fs.readFileSync(CONFIG_FILE);
-    if (raw.length < 17) return null; // too short to contain iv + data
-    const iv = raw.subarray(0, 16);
-    const encrypted = raw.subarray(16);
-    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
-    return JSON.parse(decrypted.toString('utf8'));
+
+    // Try safeStorage first (preferred on Windows/macOS)
+    if (useSafeStorage()) {
+      try {
+        const decrypted = safeStorage.decryptString(raw);
+        return JSON.parse(decrypted);
+      } catch { /* not safeStorage format — try legacy formats */ }
+    }
+
+    // Try AES-256-GCM (fallback format)
+    try {
+      const decrypted = decryptGcm(raw);
+      if (decrypted) {
+        const config = JSON.parse(decrypted);
+        // Migrate to safeStorage if now available
+        if (useSafeStorage()) saveConfig(config);
+        return config;
+      }
+    } catch { /* not GCM format */ }
+
+    // Try legacy AES-256-CBC (old format before security upgrade)
+    try {
+      const decrypted = decryptLegacyCbc(raw);
+      if (decrypted) {
+        const config = JSON.parse(decrypted);
+        // Migrate to new format on next save
+        saveConfig(config);
+        return config;
+      }
+    } catch { /* corrupt */ }
+
+    return null;
   } catch {
-    // Config file is corrupt (partial write, bad decrypt, etc.) — treat as missing
     return null;
   }
 }
 
 export function saveConfig(config) {
   ensureDir();
-  const key = getEncryptionKey();
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-  const encrypted = Buffer.concat([
-    cipher.update(JSON.stringify(config), 'utf8'),
-    cipher.final(),
-  ]);
-  fs.writeFileSync(CONFIG_FILE, Buffer.concat([iv, encrypted]), { mode: 0o600 });
+  const json = JSON.stringify(config);
+
+  if (useSafeStorage()) {
+    const encrypted = safeStorage.encryptString(json);
+    fs.writeFileSync(CONFIG_FILE, encrypted, { mode: 0o600 });
+    // Clean up old key file — no longer needed with OS-level encryption
+    if (fs.existsSync(KEY_FILE)) {
+      try { fs.unlinkSync(KEY_FILE); } catch { /* best effort */ }
+    }
+  } else {
+    // Fallback: AES-256-GCM with key file (authenticated encryption)
+    const encrypted = encryptGcm(json);
+    fs.writeFileSync(CONFIG_FILE, encrypted, { mode: 0o600 });
+  }
 }
 
 export function isSetupComplete() {

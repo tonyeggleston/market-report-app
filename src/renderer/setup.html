@@ -247,6 +247,13 @@ The average days on market for closed homes within the last 90 days is {AVG_DOM_
       currentStep = step;
     }
 
+    function esc(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = String(str);
+      return div.innerHTML;
+    }
+
     function buildReview() {
       const summary = document.getElementById('review-summary');
       const mlsUser = document.getElementById('mls-username').value;
@@ -259,14 +266,14 @@ The average days on market for closed homes within the last 90 days is {AVG_DOM_
       const model = document.getElementById('openrouter-model').value;
 
       summary.innerHTML = `
-        <div class="review-row"><strong>MLS Login:</strong> ${mlsUser || '(not set)'}</div>
-        <div class="review-row"><strong>BrokerBay Login:</strong> ${bbUser || '(not set)'}</div>
-        <div class="review-row"><strong>Team Brokerage:</strong> ${teamBrokerage || '(not set)'}</div>
-        <div class="review-row"><strong>Team Members:</strong> ${members.length ? members.join(', ') : '(none)'}</div>
-        <div class="review-row"><strong>Lead Agent:</strong> ${agentName || '(not set)'}</div>
+        <div class="review-row"><strong>MLS Login:</strong> ${esc(mlsUser) || '(not set)'}</div>
+        <div class="review-row"><strong>BrokerBay Login:</strong> ${esc(bbUser) || '(not set)'}</div>
+        <div class="review-row"><strong>Team Brokerage:</strong> ${esc(teamBrokerage) || '(not set)'}</div>
+        <div class="review-row"><strong>Team Members:</strong> ${members.length ? esc(members.join(', ')) : '(none)'}</div>
+        <div class="review-row"><strong>Lead Agent:</strong> ${esc(agentName) || '(not set)'}</div>
         <div class="review-row"><strong>Email Template:</strong> ${hasTemplate ? 'Provided' : 'Using default'}</div>
         <div class="review-row"><strong>AI Vision:</strong> ${hasApiKey ? 'Configured' : '(not set — photo analysis will be skipped)'}</div>
-        <div class="review-row"><strong>Vision Model:</strong> ${model || 'google/gemini-2.5-flash'}</div>
+        <div class="review-row"><strong>Vision Model:</strong> ${esc(model) || 'google/gemini-2.5-flash'}</div>
       `;
     }
 

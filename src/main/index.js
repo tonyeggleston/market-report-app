@@ -70,12 +70,31 @@ function friendlyError(err) {
   return msg;
 }
 
+// Sensitive fields that should never be sent to the renderer
+const SENSITIVE_FIELDS = ['mlsPassword', 'brokerBayPassword', 'openrouterApiKey'];
+
 function registerIpcHandlers() {
   ipcMain.handle('config:get', () => {
-    return getConfig();
+    const config = getConfig();
+    if (!config) return null;
+    // Strip passwords/keys — renderer gets empty strings for sensitive fields
+    const safe = { ...config };
+    for (const field of SENSITIVE_FIELDS) {
+      if (safe[field]) safe[field] = '';
+    }
+    return safe;
   });
 
   ipcMain.handle('config:save', (_event, config) => {
+    // If renderer sent empty sensitive fields, preserve existing values
+    const existing = getConfig();
+    if (existing) {
+      for (const field of SENSITIVE_FIELDS) {
+        if (!config[field] && existing[field]) {
+          config[field] = existing[field];
+        }
+      }
+    }
     saveConfig(config);
     return { ok: true };
   });
@@ -183,7 +202,18 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle('shell:openPath', (_event, filePath) => {
-    shell.openPath(filePath);
+    // Security: restrict to app's own data directory and block executables
+    const allowedBase = path.join(app.getPath('userData'), 'market-report');
+    const resolved = path.resolve(filePath);
+    if (!resolved.startsWith(allowedBase + path.sep) && resolved !== allowedBase) {
+      throw new Error('Path not allowed — can only open files within the app data directory.');
+    }
+    const dangerousExts = ['.exe', '.bat', '.cmd', '.ps1', '.vbs', '.js', '.msi', '.com', '.scr'];
+    const ext = path.extname(resolved).toLowerCase();
+    if (dangerousExts.includes(ext)) {
+      throw new Error('Cannot open executable files.');
+    }
+    shell.openPath(resolved);
     return { ok: true };
   });
 

@@ -22,7 +22,14 @@ export async function runReport(listingAddress, onProgress) {
   const config = getConfig();
   if (!config) throw new Error('App not configured. Run setup first.');
 
-  const outputDir = path.join(app.getPath('userData'), 'market-report', 'runs', listingAddress.replace(/\s+/g, '-'));
+  // Sanitize listing address for use as directory name — strip path traversal characters
+  const safeName = listingAddress.replace(/[^a-zA-Z0-9 .\-]/g, '').replace(/\s+/g, '-') || 'unnamed';
+  const baseDir = path.join(app.getPath('userData'), 'market-report', 'runs');
+  const outputDir = path.join(baseDir, safeName);
+  // Defense-in-depth: verify the resolved path is still under baseDir
+  if (!path.resolve(outputDir).startsWith(path.resolve(baseDir) + path.sep)) {
+    throw new Error('Invalid listing address — contains disallowed characters.');
+  }
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
   // ═══════════════════════════════════════════
