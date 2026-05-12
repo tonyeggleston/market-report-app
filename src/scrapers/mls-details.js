@@ -59,7 +59,6 @@ function parseBigTicketItems(description) {
   if (!description) return [];
 
   const items = [];
-  const lower = description.toLowerCase();
 
   const patterns = [
     { regex: /new\s+roof|roof\s+(?:replaced|installed|new)|recently\s+(?:installed|replaced)\s+roof/i, label: 'new roof' },

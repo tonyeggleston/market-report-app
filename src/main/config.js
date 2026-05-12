@@ -36,13 +36,19 @@ export function getConfig() {
   ensureDir();
   if (!fs.existsSync(CONFIG_FILE)) return null;
 
-  const key = getEncryptionKey();
-  const raw = fs.readFileSync(CONFIG_FILE);
-  const iv = raw.subarray(0, 16);
-  const encrypted = raw.subarray(16);
-  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
-  return JSON.parse(decrypted.toString('utf8'));
+  try {
+    const key = getEncryptionKey();
+    const raw = fs.readFileSync(CONFIG_FILE);
+    if (raw.length < 17) return null; // too short to contain iv + data
+    const iv = raw.subarray(0, 16);
+    const encrypted = raw.subarray(16);
+    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    return JSON.parse(decrypted.toString('utf8'));
+  } catch {
+    // Config file is corrupt (partial write, bad decrypt, etc.) — treat as missing
+    return null;
+  }
 }
 
 export function saveConfig(config) {

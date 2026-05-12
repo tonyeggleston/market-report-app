@@ -86,6 +86,13 @@
   </div>
 
   <script>
+    function esc(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = String(str);
+      return div.innerHTML;
+    }
+
     let reportData = null;
 
     window.api.onReviewData((data) => {
@@ -152,38 +159,38 @@
 
       let badges = '';
       if (extraClass === 'new-listing') badges += '<span class="badge badge-new">New</span>';
-      if (extraClass === 'status-change') badges += `<span class="badge badge-contract">${comp.status}</span>`;
-      badges += `<span class="badge badge-score">Score: ${score}/10</span>`;
+      if (extraClass === 'status-change') badges += `<span class="badge badge-contract">${esc(comp.status)}</span>`;
+      badges += `<span class="badge badge-score">Score: ${esc(score)}/10</span>`;
       badges += included
         ? '<span class="badge badge-include">Include</span>'
         : '<span class="badge badge-exclude">Exclude</span>';
 
       const redFlagHtml = (vision?.redFlags || []).length
-        ? `<div class="red-flags">${vision.redFlags.map(f => `<span class="red-flag-tag">${f}</span>`).join('')}</div>`
+        ? `<div class="red-flags">${vision.redFlags.map(f => `<span class="red-flag-tag">${esc(f)}</span>`).join('')}</div>`
         : '';
 
       const kitchenHtml = analysis.kitchen
-        ? `<div class="vision-item"><div class="vi-label">Kitchen</div><div class="vi-value">${analysis.kitchen.update_level || '—'}${analysis.kitchen.white_cabinets ? ', white cabinets' : ''}${analysis.kitchen.stainless_appliances ? ', stainless' : ''}</div></div>`
+        ? `<div class="vision-item"><div class="vi-label">Kitchen</div><div class="vi-value">${esc(analysis.kitchen.update_level || '—')}${analysis.kitchen.white_cabinets ? ', white cabinets' : ''}${analysis.kitchen.stainless_appliances ? ', stainless' : ''}</div></div>`
         : '';
 
       const bathroomHtml = (analysis.bathrooms || []).map((b, i) =>
-        `<div class="vision-item"><div class="vi-label">Bathroom ${i + 1}</div><div class="vi-value">${b.update_level || '—'}, ${b.palette || '—'}${b.standalone_tub ? ', standalone tub' : ''}</div></div>`
+        `<div class="vision-item"><div class="vi-label">Bathroom ${i + 1}</div><div class="vi-value">${esc(b.update_level || '—')}, ${esc(b.palette || '—')}${b.standalone_tub ? ', standalone tub' : ''}</div></div>`
       ).join('');
 
       const flooringHtml = analysis.flooring
-        ? `<div class="vision-item"><div class="vi-label">Flooring</div><div class="vi-value">${analysis.flooring.type || '—'}${analysis.flooring.consistent ? ', consistent' : ', inconsistent'}</div></div>`
+        ? `<div class="vision-item"><div class="vi-label">Flooring</div><div class="vi-value">${esc(analysis.flooring.type || '—')}${analysis.flooring.consistent ? ', consistent' : ', inconsistent'}</div></div>`
         : '';
 
       const outdoorHtml = analysis.outdoor
-        ? `<div class="vision-item"><div class="vi-label">Outdoor</div><div class="vi-value">${analysis.outdoor.covered_patio ? 'Covered patio' : 'No covered patio'}, ${analysis.outdoor.pool ? 'Pool' : 'No pool'}, ${analysis.outdoor.backyard_size || '—'} yard</div></div>`
+        ? `<div class="vision-item"><div class="vi-label">Outdoor</div><div class="vi-value">${analysis.outdoor.covered_patio ? 'Covered patio' : 'No covered patio'}, ${analysis.outdoor.pool ? 'Pool' : 'No pool'}, ${esc(analysis.outdoor.backyard_size || '—')} yard</div></div>`
         : '';
 
       return `
         <div class="comp-card ${cardClass} ${extraClass}" data-mls="${comp.mlsNumber}">
           <div class="comp-top" onclick="toggleDetail('${comp.mlsNumber}')">
             <div>
-              <div class="comp-address">${comp.address || comp.mlsNumber}</div>
-              <div class="comp-meta">${comp.sqft} sqft &bull; ${comp.yearBuilt} &bull; ${comp.lotAcres} acres &bull; ${comp.hasPool ? 'Pool' : 'No pool'} &bull; $${comp.price} &bull; ${comp.dom} DOM</div>
+              <div class="comp-address">${esc(comp.address || comp.mlsNumber)}</div>
+              <div class="comp-meta">${esc(comp.sqft)} sqft &bull; ${esc(comp.yearBuilt)} &bull; ${esc(comp.lotAcres)} acres &bull; ${comp.hasPool ? 'Pool' : 'No pool'} &bull; $${esc(comp.price)} &bull; ${esc(comp.dom)} DOM</div>
             </div>
             <div style="display: flex; align-items: center; gap: 16px;">
               <div class="comp-badges">${badges}</div>
@@ -202,12 +209,12 @@
               ${bathroomHtml}
               ${flooringHtml}
               ${outdoorHtml}
-              <div class="vision-item"><div class="vi-label">Overall Update</div><div class="vi-value">${vision?.overallUpdateLevel || '—'}</div></div>
-              <div class="vision-item"><div class="vi-label">Palette</div><div class="vi-value">${analysis.palette?.modern_whites_grays ? 'Modern whites/grays' : analysis.palette?.dominant_colors?.join(', ') || '—'}</div></div>
+              <div class="vision-item"><div class="vi-label">Overall Update</div><div class="vi-value">${esc(vision?.overallUpdateLevel || '—')}</div></div>
+              <div class="vision-item"><div class="vi-label">Palette</div><div class="vi-value">${analysis.palette?.modern_whites_grays ? 'Modern whites/grays' : esc(analysis.palette?.dominant_colors?.join(', ') || '—')}</div></div>
             </div>
             ${redFlagHtml}
             <div class="reasoning-box">
-              <strong>AI Reasoning:</strong> ${vision?.reasoning || 'No analysis available.'}
+              <strong>AI Reasoning:</strong> ${esc(vision?.reasoning || 'No analysis available.')}
             </div>
             <div class="description-edit">
               <label>Email Description (edit before sending):</label>

@@ -117,7 +117,7 @@ export async function pullMarketTrends(page, config, neighborhoodName, priceRang
   }
 
   // Step 4: Set price range (because sqft filter is broken)
-  onProgress('Pulling market trends...', `Price range: $${priceRange.min}K – $${priceRange.max}K`);
+  onProgress('Pulling market trends...', `Price range: $${priceRange.min.toLocaleString()} – $${priceRange.max.toLocaleString()}`);
 
   const minPriceInput = await page.$(
     'input[name*="priceMin"], input[name*="min_price"], input[placeholder*="Min Price"], input[placeholder*="Min"]'

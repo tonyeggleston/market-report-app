@@ -4,10 +4,9 @@ import { app } from 'electron';
 import { getConfig } from '../main/config.js';
 import { getDb } from '../db/schema.js';
 import { launchMlsBrowser, loginToMls } from './mls-login.js';
-import { runSavedSearch, switchToAgentSingleLine, extractCompRows, extractStats } from './mls-search.js';
+import { runSavedSearch, switchToAgentSingleLine, extractCompRows } from './mls-search.js';
 import { downloadListingPhotos } from './mls-photos.js';
 import { extractListingDetail, getOurListingDate } from './mls-details.js';
-import { selectCompsAndDownloadCma } from './mls-cma.js';
 import { runPriceOnlySearch } from './mls-price-search.js';
 import { launchBrokerBayBrowser, loginToBrokerBay } from './bb-login.js';
 import { pullShowings } from './bb-showings.js';
@@ -37,7 +36,6 @@ export async function runReport(listingAddress, onProgress) {
     await switchToAgentSingleLine(mlsPage);
 
     const comps = await extractCompRows(mlsPage, onProgress);
-    const stats = await extractStats(mlsPage);
 
     const ourListing = comps.find(
       (c) => c.address.toLowerCase().includes(listingAddress.toLowerCase())
