@@ -221,6 +221,11 @@
       document.getElementById('listing-address').value = '';
     }
 
+    function escAttr(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
     async function openSettings() {
       document.getElementById('settings-modal').classList.remove('hidden');
       const config = await window.api.getConfig();
@@ -232,51 +237,51 @@
       body.innerHTML = `
         <div class="form-group">
           <label>MLS Username</label>
-          <input type="text" id="s-mls-user" value="${config.mlsUsername || ''}">
+          <input type="text" id="s-mls-user" value="${escAttr(config.mlsUsername)}">
         </div>
         <div class="form-group">
           <label>MLS Password</label>
-          <input type="password" id="s-mls-pass" value="${config.mlsPassword || ''}">
+          <input type="password" id="s-mls-pass" value="${escAttr(config.mlsPassword)}">
         </div>
         <div class="form-group">
           <label>MLS URL</label>
-          <input type="url" id="s-mls-url" value="${config.mlsUrl || ''}">
+          <input type="url" id="s-mls-url" value="${escAttr(config.mlsUrl)}">
         </div>
         <div class="form-group">
           <label>BrokerBay Username</label>
-          <input type="text" id="s-bb-user" value="${config.brokerBayUsername || ''}">
+          <input type="text" id="s-bb-user" value="${escAttr(config.brokerBayUsername)}">
         </div>
         <div class="form-group">
           <label>BrokerBay Password</label>
-          <input type="password" id="s-bb-pass" value="${config.brokerBayPassword || ''}">
+          <input type="password" id="s-bb-pass" value="${escAttr(config.brokerBayPassword)}">
         </div>
         <div class="form-group">
           <label>BrokerBay URL</label>
-          <input type="url" id="s-bb-url" value="${config.brokerBayUrl || 'https://app.brokerbay.com'}">
+          <input type="url" id="s-bb-url" value="${escAttr(config.brokerBayUrl || 'https://app.brokerbay.com')}">
         </div>
         <div class="form-group">
           <label>Team Brokerage</label>
-          <input type="text" id="s-team-brok" value="${config.teamBrokerage || ''}">
+          <input type="text" id="s-team-brok" value="${escAttr(config.teamBrokerage)}">
         </div>
         <div class="form-group">
           <label>Team Members (one per line)</label>
-          <textarea id="s-team-members" rows="4">${(config.teamMembers || []).join('\n')}</textarea>
+          <textarea id="s-team-members" rows="4">${escAttr((config.teamMembers || []).join('\n'))}</textarea>
         </div>
         <div class="form-group">
           <label>Lead Agent Name</label>
-          <input type="text" id="s-agent" value="${config.agentName || ''}">
+          <input type="text" id="s-agent" value="${escAttr(config.agentName)}">
         </div>
         <div class="form-group">
           <label>Email Template</label>
-          <textarea id="s-template" rows="8">${config.emailTemplate || ''}</textarea>
+          <textarea id="s-template" rows="8">${escAttr(config.emailTemplate)}</textarea>
         </div>
         <div class="form-group">
           <label>OpenRouter API Key</label>
-          <input type="password" id="s-or-key" value="${config.openrouterApiKey || ''}">
+          <input type="password" id="s-or-key" value="${escAttr(config.openrouterApiKey)}">
         </div>
         <div class="form-group">
           <label>Vision Model</label>
-          <input type="text" id="s-or-model" value="${config.openrouterModel || 'google/gemini-2.5-flash'}">
+          <input type="text" id="s-or-model" value="${escAttr(config.openrouterModel || 'google/gemini-2.5-flash')}">
         </div>
         <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
       `;

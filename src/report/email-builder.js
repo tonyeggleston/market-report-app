@@ -67,11 +67,11 @@ function buildHtml(config, data) {
 
   parts.push(`<div style="font-family: Calibri, Arial, sans-serif; font-size: 14px; color: #1a1a1a; line-height: 1.6; max-width: 700px;">`);
 
-  parts.push(`<p>We saw <strong>${metrics.showingCount}</strong> showings over the past two weeks versus the market saw <strong>${metrics.showingsPerListing}</strong> showings per listing in your area.</p>`);
+  parts.push(`<p>We saw <strong>${escHtml(metrics.showingCount)}</strong> showings over the past two weeks versus the market saw <strong>${escHtml(metrics.showingsPerListing)}</strong> showings per listing in your area.</p>`);
 
-  parts.push(`<p>You have seen a total of <strong>${totalShowings}</strong> showings since going live on ${listDate || '—'}.</p>`);
+  parts.push(`<p>You have seen a total of <strong>${escHtml(totalShowings)}</strong> showings since going live on ${escHtml(listDate || '—')}.</p>`);
 
-  parts.push(`<p>We have been on the market for <strong>${metrics.ourDom || '—'}</strong> days. The average days on market for active listings is ${metrics.avgDomActive ?? '—'} with ${metrics.maxDomActive ?? '—'} being the most and ${metrics.minDomActive ?? '—'} being the least.</p>`);
+  parts.push(`<p>We have been on the market for <strong>${escHtml(metrics.ourDom || '—')}</strong> days. The average days on market for active listings is ${escHtml(metrics.avgDomActive ?? '—')} with ${escHtml(metrics.maxDomActive ?? '—')} being the most and ${escHtml(metrics.minDomActive ?? '—')} being the least.</p>`);
 
   // New listings with photos
   if (diff.newListings.length) {
@@ -96,7 +96,7 @@ function buildHtml(config, data) {
 
     for (const listing of underContract) {
       const narrative = statusNarratives?.[listing.mlsNumber];
-      const desc = narrative || `${listing.address} — ${listing.sqft} sq ft, built ${listing.yearBuilt}, ${listing.lotAcres} acres, ${listing.hasPool ? 'pool' : 'no pool'}. Listed for ${formatPrice(listing.price)}, ${listing.dom} days on market. Was ${listing.previousStatus}, now ${listing.status}.`;
+      const desc = narrative || `${escHtml(listing.address)} — ${escHtml(listing.sqft)} sq ft, built ${escHtml(listing.yearBuilt)}, ${escHtml(listing.lotAcres)} acres, ${listing.hasPool ? 'pool' : 'no pool'}. Listed for ${formatPrice(listing.price)}, ${escHtml(listing.dom)} days on market. Was ${escHtml(listing.previousStatus)}, now ${escHtml(listing.status)}.`;
       parts.push(buildListingHtml(listing, { [listing.mlsNumber]: desc }, photosByMls));
     }
   }
@@ -106,11 +106,11 @@ function buildHtml(config, data) {
     parts.push(`<p><strong>Showing feedback received:</strong></p>`);
     parts.push('<ul style="margin: 4px 0 16px;">');
     for (const fb of feedback) {
-      let line = `<strong>${fb.agent}</strong>`;
-      if (fb.brokerage) line += ` (${fb.brokerage})`;
-      if (fb.rating) line += ` — rated the home's condition ${fb.rating}`;
-      if (fb.comments) line += ` — "${fb.comments}"`;
-      if (fb.offerIntent) line += `. ${fb.offerIntent}`;
+      let line = `<strong>${escHtml(fb.agent)}</strong>`;
+      if (fb.brokerage) line += ` (${escHtml(fb.brokerage)})`;
+      if (fb.rating) line += ` — rated the home's condition ${escHtml(fb.rating)}`;
+      if (fb.comments) line += ` — "${escHtml(fb.comments)}"`;
+      if (fb.offerIntent) line += `. ${escHtml(fb.offerIntent)}`;
       parts.push(`<li style="margin-bottom: 4px;">${line}</li>`);
     }
     parts.push('</ul>');
@@ -119,13 +119,13 @@ function buildHtml(config, data) {
   }
 
   if (data.openHouseNotes) {
-    parts.push(`<p>${data.openHouseNotes}</p>`);
+    parts.push(`<p>${escHtml(data.openHouseNotes)}</p>`);
   }
 
-  parts.push(`<p>The average days on market for closed homes within the last 90 days is <strong>${closedStats?.avgDomClosed ?? '—'}</strong> with an average sales price of <strong>${closedStats?.avgSoldPrice ? formatPrice(closedStats.avgSoldPrice) : '—'}</strong>.</p>`);
+  parts.push(`<p>The average days on market for closed homes within the last 90 days is <strong>${escHtml(closedStats?.avgDomClosed ?? '—')}</strong> with an average sales price of <strong>${closedStats?.avgSoldPrice ? formatPrice(closedStats.avgSoldPrice) : '—'}</strong>.</p>`);
 
   if (config.agentName) {
-    parts.push(`<p>${config.agentName} will reach out to you to discuss this if she hasn't already. Please let us know if you need anything.</p>`);
+    parts.push(`<p>${escHtml(config.agentName)} will reach out to you to discuss this if she hasn't already. Please let us know if you need anything.</p>`);
   }
 
   parts.push('</div>');
@@ -139,10 +139,10 @@ function buildListingHtml(listing, descriptions, photosByMls) {
 
   let html = '<div style="margin: 16px 0; padding: 16px; background: #f9fafb; border-radius: 8px; border-left: 4px solid #2563eb;">';
 
-  html += `<p style="margin: 0 0 8px;"><strong>${listing.address}</strong> — ${listing.sqft} sq ft, built ${listing.yearBuilt}, ${listing.lotAcres} acres${listing.hasPool ? ', pool' : ', no pool'}. Listed for <strong>${formatPrice(listing.price)}</strong>.</p>`;
+  html += `<p style="margin: 0 0 8px;"><strong>${escHtml(listing.address)}</strong> — ${escHtml(listing.sqft)} sq ft, built ${escHtml(listing.yearBuilt)}, ${escHtml(listing.lotAcres)} acres${listing.hasPool ? ', pool' : ', no pool'}. Listed for <strong>${formatPrice(listing.price)}</strong>.</p>`;
 
   if (desc) {
-    html += `<p style="margin: 0 0 10px; color: #374151;">${desc}</p>`;
+    html += `<p style="margin: 0 0 10px; color: #374151;">${escHtml(desc)}</p>`;
   }
 
   if (photos.length) {
@@ -253,6 +253,15 @@ function buildFeedbackPlain(feedback) {
 function formatPrice(price) {
   if (!price) return '$—';
   return `$${Number(price).toLocaleString()}`;
+}
+
+function escHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function getDefaultTemplate() {

@@ -113,23 +113,6 @@ export async function extractCompRows(page, onProgress) {
   return comps;
 }
 
-export async function extractStats(page) {
-  return page.evaluate(() => {
-    const text = document.body.innerText;
-
-    const findStat = (pattern) => {
-      const match = text.match(pattern);
-      return match ? parseInt(match[1]) : null;
-    };
-
-    return {
-      avgDomActive: findStat(/average[:\s]*(\d+)/i),
-      maxDomActive: findStat(/max(?:imum)?[:\s]*(\d+)/i),
-      minDomActive: findStat(/min(?:imum)?[:\s]*(\d+)/i),
-    };
-  });
-}
-
 export async function extractClosedStats(page) {
   return page.evaluate(() => {
     const text = document.body.innerText;

@@ -4,7 +4,7 @@ import { app } from 'electron';
 import { getConfig } from '../main/config.js';
 import { getDb } from '../db/schema.js';
 import { launchMlsBrowser, loginToMls } from './mls-login.js';
-import { runSavedSearch, switchToAgentSingleLine, extractCompRows } from './mls-search.js';
+import { runSavedSearch, switchToAgentSingleLine, extractCompRows, extractClosedStats } from './mls-search.js';
 import { downloadListingPhotos } from './mls-photos.js';
 import { extractListingDetail, getOurListingDate } from './mls-details.js';
 import { runPriceOnlySearch } from './mls-price-search.js';
@@ -109,6 +109,9 @@ export async function runReport(listingAddress, onProgress) {
     // Phase 7: MLS price-only re-search to count actives for BrokerBay comparison
     const priceSearchResult = await runPriceOnlySearch(mlsPage, priceRange.min, priceRange.max, onProgress);
 
+    // Extract closed-listing stats (avg DOM closed, avg sold price) from the current results
+    const closedStats = await extractClosedStats(mlsPage);
+
     // ═══════════════════════════════════════════
     // PHASE 5–6: BrokerBay
     // ═══════════════════════════════════════════
@@ -208,6 +211,7 @@ export async function runReport(listingAddress, onProgress) {
       },
       trendData,
       priceSearchResult,
+      closedStats,
       listDate,
       totalShowings,
       ourListing,
@@ -261,7 +265,7 @@ export async function finalizeReport(listingAddress, reportData, compOverrides, 
     compDescriptions: reportData.compDescriptions,
     statusNarratives: reportData.statusNarratives,
     feedback: reportData.showingData.feedback,
-    closedStats: {},
+    closedStats: reportData.closedStats || {},
     openHouseNotes: '',
     photosByMls: reportData.photosByMls,
   });
