@@ -85,9 +85,11 @@ function downloadFile(url, dest, redirectCount = 0) {
     const client = url.startsWith('https') ? https : http;
 
     client.get(url, { timeout: 10000 }, (response) => {
-      if (response.statusCode === 301 || response.statusCode === 302) {
+      const code = response.statusCode;
+      if (code === 301 || code === 302 || code === 303 || code === 307 || code === 308) {
         response.resume(); // drain the response
-        downloadFile(response.headers.location, dest, redirectCount + 1).then(resolve).catch(reject);
+        const redirectUrl = new URL(response.headers.location, url).href;
+        downloadFile(redirectUrl, dest, redirectCount + 1).then(resolve).catch(reject);
         return;
       }
       if (response.statusCode !== 200) {

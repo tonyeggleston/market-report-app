@@ -218,7 +218,7 @@
             </div>
             <div class="description-edit">
               <label>Email Description (edit before sending):</label>
-              <textarea rows="3" id="desc-${comp.mlsNumber}" oninput="editDescription('${comp.mlsNumber}', this.value)">${desc}</textarea>
+              <textarea rows="3" id="desc-${comp.mlsNumber}" oninput="editDescription('${comp.mlsNumber}', this.value)">${esc(desc)}</textarea>
             </div>
           </div>
         </div>
