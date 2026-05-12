@@ -8,9 +8,7 @@ const CONFIG_FILE = path.join(CONFIG_DIR, 'config.enc');
 const KEY_FILE = path.join(CONFIG_DIR, '.key');
 
 function ensureDir() {
-  if (!fs.existsSync(CONFIG_DIR)) {
-    fs.mkdirSync(CONFIG_DIR, { recursive: true });
-  }
+  fs.mkdirSync(CONFIG_DIR, { recursive: true });
 }
 
 // ─── Preferred: Electron safeStorage (DPAPI on Windows, Keychain on macOS) ───
@@ -21,14 +19,18 @@ function useSafeStorage() {
 
 // ─── Fallback: AES-256-GCM with key file (Linux without keyring) ───
 
+let cachedKey = null;
+
 function getEncryptionKey() {
+  if (cachedKey) return cachedKey;
   ensureDir();
   if (fs.existsSync(KEY_FILE)) {
-    return fs.readFileSync(KEY_FILE);
+    cachedKey = fs.readFileSync(KEY_FILE);
+    return cachedKey;
   }
-  const key = crypto.randomBytes(32);
-  fs.writeFileSync(KEY_FILE, key, { mode: 0o600 });
-  return key;
+  cachedKey = crypto.randomBytes(32);
+  fs.writeFileSync(KEY_FILE, cachedKey, { mode: 0o600 });
+  return cachedKey;
 }
 
 function encryptGcm(plaintext) {

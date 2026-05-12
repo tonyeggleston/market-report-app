@@ -84,12 +84,7 @@ function buildHtml(config, data) {
   }
 
   // Status changes with photos
-  const underContract = (diff.statusChanges || []).filter((c) =>
-    c.status.toLowerCase().includes('option') ||
-    c.status.toLowerCase().includes('pending') ||
-    c.status.toLowerCase().includes('contingent') ||
-    c.status.toLowerCase().includes('kick')
-  );
+  const underContract = (diff.statusChanges || []).filter((c) => isUnderContract(c.status));
 
   if (underContract.length) {
     parts.push(`<p><strong>${underContract.length === 1 ? 'One home has' : `${underContract.length} homes have`} gone under contract since our last report:</strong></p>`);
@@ -208,12 +203,7 @@ function buildStatusChangesPlain(statusChanges, narratives) {
   if (!statusChanges.length) return '';
 
   const parts = [];
-  const underContract = statusChanges.filter((c) =>
-    c.status.toLowerCase().includes('option') ||
-    c.status.toLowerCase().includes('pending') ||
-    c.status.toLowerCase().includes('contingent') ||
-    c.status.toLowerCase().includes('kick')
-  );
+  const underContract = statusChanges.filter((c) => isUnderContract(c.status));
 
   if (underContract.length) {
     parts.push(`${underContract.length === 1 ? 'One home has' : `${underContract.length} homes have`} gone under contract since our last report:`);
@@ -248,6 +238,12 @@ function buildFeedbackPlain(feedback) {
     parts.push(line);
   }
   return parts.join('\n');
+}
+
+function isUnderContract(status) {
+  const lower = status.toLowerCase();
+  return lower.includes('option') || lower.includes('pending') ||
+    lower.includes('contingent') || lower.includes('kick');
 }
 
 function formatPrice(price) {

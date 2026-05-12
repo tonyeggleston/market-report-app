@@ -30,7 +30,7 @@ export async function runReport(listingAddress, onProgress) {
   if (!path.resolve(outputDir).startsWith(path.resolve(baseDir) + path.sep)) {
     throw new Error('Invalid listing address — contains disallowed characters.');
   }
-  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+  fs.mkdirSync(outputDir, { recursive: true });
 
   // ═══════════════════════════════════════════
   // PHASE 1–4: MLS
@@ -124,11 +124,12 @@ export async function runReport(listingAddress, onProgress) {
     // ═══════════════════════════════════════════
     const { browser: bbBrowser, page: bbPage } = await launchBrokerBayBrowser(config);
 
+    const db = getDb();
+
     let showingData, trendData;
     try {
       await loginToBrokerBay(bbPage, config, onProgress);
 
-      const db = getDb();
       const lastReport = db
         .prepare('SELECT run_date FROM reports WHERE listing_address = ? ORDER BY run_date DESC LIMIT 1')
         .get(listingAddress);
@@ -147,7 +148,6 @@ export async function runReport(listingAddress, onProgress) {
     // PHASE 3: Diff against previous report
     // ═══════════════════════════════════════════
     onProgress('Comparing to previous report...', 'Loading last report');
-    const db = getDb();
     const previousReport = db
       .prepare('SELECT data_json FROM reports WHERE listing_address = ? ORDER BY run_date DESC LIMIT 1')
       .get(listingAddress);

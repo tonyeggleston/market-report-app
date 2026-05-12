@@ -5,9 +5,7 @@ import http from 'node:http';
 
 export async function downloadListingPhotos(page, mlsNumber, outputDir, onProgress) {
   const photoDir = path.join(outputDir, 'photos', mlsNumber);
-  if (!fs.existsSync(photoDir)) {
-    fs.mkdirSync(photoDir, { recursive: true });
-  }
+  fs.mkdirSync(photoDir, { recursive: true });
 
   const mlsLink = await page.$(
     `a:has-text("${mlsNumber}"), td:has-text("${mlsNumber}") a, a[href*="${mlsNumber}"]`
