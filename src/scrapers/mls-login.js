@@ -63,46 +63,64 @@ async function launchMatrixApp(page, onProgress) {
 
   onProgress('Logging into MLS...', 'Launching Matrix');
 
-  // Wait for the dashboard's Matrix tile to appear.
-  // Structure: <div class="app-title-container" id="appDetailmatrix"><h4 class="apptitle">Matrix</h4></div>
-  // with a sibling .app-icon. The whole tile is clickable and opens a new tab.
-  const tileSelectors = [
+  // The dashboard tile structure (Clareity/Angular):
+  //   <app-standard-app><div class="appborder">
+  //     <div class="app-icon" isformpost="false" id="386"><img ...></div>
+  //     <div class="app-title-container" id="appDetailmatrix"><h4 class="apptitle">Matrix</h4></div>
+  //   </div></app-standard-app>
+  // The CLICK HANDLER is on the .app-icon (id 386 for Matrix), not the title.
+  // Launching opens Matrix in a new tab (or sometimes same tab).
+  const clickTargets = [
+    '#386',                                                        // Matrix app-icon (Clareity app id)
+    'app-standard-app:has(h4.apptitle:text-is("Matrix")) .app-icon',
+    'app-standard-app:has(h4.apptitle:text-is("Matrix")) img',
+    '.app-icon:right-of(:text-is("Matrix"))',
     '#appDetailmatrix',
-    'app-standard-app:has-text("Matrix")',
-    '.app-item:has-text("Matrix")',
-    '.app-icon:near(#appDetailmatrix)',
-    'h4.apptitle:has-text("Matrix")',
   ];
 
-  let tile = null;
-  for (const sel of tileSelectors) {
+  let clicked = false;
+  for (const sel of clickTargets) {
     try {
-      tile = await page.waitForSelector(sel, { timeout: 8000 });
-      if (tile) break;
+      const el = await page.waitForSelector(sel, { timeout: 6000 });
+      if (!el) continue;
+
+      // Click and watch for a new tab opening at the same time.
+      const [popup] = await Promise.all([
+        page.context().waitForEvent('page', { timeout: 12000 }).catch(() => null),
+        el.click({ timeout: 5000 }).catch(() => {}),
+      ]);
+
+      if (popup) {
+        await popup.waitForLoadState('domcontentloaded').catch(() => {});
+        await popup.waitForTimeout(3000);
+        onProgress('Logging into MLS...', 'Matrix opened in new tab');
+        return popup;
+      }
+
+      // No popup — check if THIS tab navigated into Matrix.
+      await page.waitForTimeout(2500);
+      if (/matrix/i.test(page.url()) && !/dashboard/i.test(page.url())) {
+        onProgress('Logging into MLS...', 'Matrix opened');
+        return page;
+      }
+
+      clicked = true;
+      // Click landed but no launch detected yet — try the next target.
     } catch { /* try next selector */ }
   }
 
-  if (!tile) {
-    // Maybe SSO landed us straight in Matrix already, or the portal changed.
-    onProgress('Logging into MLS...', 'Matrix tile not found — continuing on current page');
-    return page;
+  // Last resort: scan all open tabs — Matrix may have opened without firing
+  // the event we caught.
+  const pages = page.context().pages();
+  for (const p of pages) {
+    if (/matrix/i.test(p.url()) && !/dashboard/i.test(p.url())) {
+      await p.waitForLoadState('domcontentloaded').catch(() => {});
+      onProgress('Logging into MLS...', 'Matrix tab found');
+      return p;
+    }
   }
 
-  // Clicking the tile opens Matrix in a new tab. Capture it.
-  const [popup] = await Promise.all([
-    page.context().waitForEvent('page', { timeout: 20000 }).catch(() => null),
-    tile.click().catch(() => {}),
-  ]);
-
-  if (popup) {
-    await popup.waitForLoadState('domcontentloaded').catch(() => {});
-    await popup.waitForTimeout(2000);
-    onProgress('Logging into MLS...', 'Matrix opened');
-    return popup;
-  }
-
-  // No popup — maybe it navigated in the same tab.
-  await page.waitForLoadState('domcontentloaded').catch(() => {});
-  await page.waitForTimeout(2000);
+  onProgress('Logging into MLS...',
+    clicked ? 'Clicked Matrix tile but launch not detected — continuing' : 'Matrix tile not found — continuing');
   return page;
 }
