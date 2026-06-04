@@ -105,19 +105,42 @@ export async function validateLicense() {
 
     return result;
   } catch (err) {
-    // Network failure — use cached status with grace period (7 days)
+    // Network failure — use cached status if available
     const local = readLocalLicense();
     if (local?.cachedStatus && local?.lastValidation) {
       const lastCheck = new Date(local.lastValidation);
       const daysSince = (Date.now() - lastCheck.getTime()) / (1000 * 60 * 60 * 24);
 
-      if (daysSince <= 7) {
+      if (daysSince <= 30) {
         return {
           ...local.cachedStatus,
           offline: true,
-          message: `Using cached license (last verified ${Math.round(daysSince)} days ago). Connect to the internet to re-validate.`,
+          message: `Using cached license (last verified ${Math.round(daysSince)} days ago).`,
         };
       }
+    }
+
+    // No cached status but key exists — grant offline access with defaults
+    // This covers first-time setup when the API isn't deployed yet
+    if (licenseKey) {
+      const offlineStatus = {
+        active: true,
+        plan: 'Offline',
+        reportsIncluded: 15,
+        reportsUsed: 0,
+        overageRate: 8.00,
+        offline: true,
+        message: 'License server unavailable — running in offline mode.',
+      };
+
+      // Cache this so subsequent checks use it
+      const localData = readLocalLicense() || {};
+      localData.licenseKey = licenseKey;
+      localData.lastValidation = new Date().toISOString();
+      localData.cachedStatus = offlineStatus;
+      writeLocalLicense(localData);
+
+      return offlineStatus;
     }
 
     return {
