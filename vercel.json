@@ -1,5 +1,5 @@
 {
+  "installCommand": "npm install --ignore-scripts && npm install --no-save stripe",
   "buildCommand": "",
-  "installCommand": "npm install --no-package-lock stripe",
   "outputDirectory": "public"
 }
