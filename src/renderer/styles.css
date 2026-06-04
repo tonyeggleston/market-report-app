@@ -16,10 +16,10 @@
   --text-secondary: #999999;
   --text-muted: #666666;
   --text-dim: #444444;
-  --accent: #e8956a;
-  --accent-hover: #f0a57e;
-  --accent-dim: rgba(232, 149, 106, 0.15);
-  --accent-glow: rgba(232, 149, 106, 0.08);
+  --accent: #D4B655;
+  --accent-hover: #E5CC78;
+  --accent-dim: rgba(212, 182, 85, 0.14);
+  --accent-glow: rgba(212, 182, 85, 0.08);
   --green: #4ade80;
   --green-dim: rgba(74, 222, 128, 0.12);
   --red: #f87171;
@@ -602,16 +602,16 @@ h3 { font-weight: 600; }
 }
 
 .email-preview, .email-result {
-  background: var(--bg-base);
+  background: #ffffff;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 24px;
   font-size: 14px;
   white-space: pre-wrap;
-  max-height: 400px;
+  max-height: 500px;
   overflow-y: auto;
   line-height: 1.7;
-  color: var(--text-secondary);
+  color: #1a1a1a;
   margin-top: 16px;
 }
 

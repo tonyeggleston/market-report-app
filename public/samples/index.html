@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MarketPulse — Sample Reports</title>
+  <link rel="icon" type="image/png" href="/icon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #0a0a0a;
+      --bg-raised: #161616;
+      --border: #222222;
+      --text-primary: #f5f0eb;
+      --text-secondary: #d9d3cc;
+      --text-muted: #9a9590;
+      --accent: #D4B655;
+      --accent-light: #E5CC78;
+      --accent-dim: rgba(212, 182, 85, 0.14);
+      --serif: 'Playfair Display', Georgia, serif;
+      --sans: 'DM Sans', -apple-system, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: var(--sans); background: var(--bg-deep); color: var(--text-primary); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .container { max-width: 900px; margin: 0 auto; padding: 60px 28px; }
+    .back { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 14px; text-decoration: none; margin-bottom: 40px; transition: color 0.2s; }
+    .back:hover { color: var(--text-primary); }
+    h1 { font-family: var(--serif); font-size: 36px; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 12px; }
+    .subtitle { font-size: 18px; color: var(--text-secondary); margin-bottom: 48px; }
+    .sample-card {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 20px;
+      transition: border-color 0.2s;
+    }
+    .sample-card:hover { border-color: #333; }
+    .sample-meta { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); margin-bottom: 12px; }
+    .sample-title { font-family: var(--serif); font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    .sample-desc { font-size: 15px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.7; }
+    .sample-stats { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 20px; }
+    .stat { text-align: center; }
+    .stat-val { font-family: var(--serif); font-size: 24px; font-weight: 700; color: var(--accent); }
+    .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .sample-link {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 24px; border-radius: 100px;
+      background: var(--accent); color: var(--bg-deep);
+      font-size: 14px; font-weight: 600; text-decoration: none;
+      transition: all 0.2s;
+    }
+    .sample-link:hover { background: var(--accent-light); color: var(--bg-deep); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="back">&larr; Back to MarketPulse</a>
+    <h1>Sample Reports</h1>
+    <p class="subtitle">See exactly what MarketPulse generates. These are real report outputs — the same emails your sellers would receive.</p>
+
+    <div class="sample-card">
+      <div class="sample-meta">Sample Report #1</div>
+      <div class="sample-title">1425 Hillcrest Dr, Southlake, TX</div>
+      <div class="sample-desc">A fully updated 4-bed/3-bath with pool on 0.18 acres. This report includes 7 comparable listings, 3 new to market, 2 that went under contract, and showing feedback from 3 agents.</div>
+      <div class="sample-stats">
+        <div class="stat"><div class="stat-val">7</div><div class="stat-label">Showings</div></div>
+        <div class="stat"><div class="stat-val">8</div><div class="stat-label">Comps</div></div>
+        <div class="stat"><div class="stat-val">3</div><div class="stat-label">New listings</div></div>
+        <div class="stat"><div class="stat-val">14</div><div class="stat-label">Days on market</div></div>
+      </div>
+      <a href="/samples/report-1425-hillcrest.html" class="sample-link">View Full Report &rarr;</a>
+    </div>
+
+    <div class="sample-card">
+      <div class="sample-meta">Sample Report #2</div>
+      <div class="sample-title">820 Timber Creek Ln, Keller, TX</div>
+      <div class="sample-desc">A semi-updated 3-bed/2-bath without pool on 0.24 acres. This report shows a quieter market — 4 showings, 1 new listing, no status changes, and mixed feedback.</div>
+      <div class="sample-stats">
+        <div class="stat"><div class="stat-val">4</div><div class="stat-label">Showings</div></div>
+        <div class="stat"><div class="stat-val">6</div><div class="stat-label">Comps</div></div>
+        <div class="stat"><div class="stat-val">1</div><div class="stat-label">New listing</div></div>
+        <div class="stat"><div class="stat-val">31</div><div class="stat-label">Days on market</div></div>
+      </div>
+      <a href="/samples/report-820-timber-creek.html" class="sample-link">View Full Report &rarr;</a>
+    </div>
+  </div>
+</body>
+</html>

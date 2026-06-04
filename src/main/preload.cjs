@@ -42,4 +42,11 @@ contextBridge.exposeInMainWorld('api', {
   openPath: (filePath) => ipcRenderer.invoke('shell:openPath', filePath),
 
   getHistory: () => ipcRenderer.invoke('report:history'),
+
+  // License
+  validateLicense: () => ipcRenderer.invoke('license:validate'),
+  canRunReport: () => ipcRenderer.invoke('license:canRun'),
+  activateLicense: (key) => ipcRenderer.invoke('license:activate', key),
+  getLicenseKey: () => ipcRenderer.invoke('license:getKey'),
+  saveLicenseKey: (key) => ipcRenderer.invoke('license:saveKey', key),
 });

@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Market Report — Setup</title>
+  <title>MarketPulse — Setup</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="setup-container">
     <header class="setup-header">
-      <h1>Market Report Generator</h1>
+      <h1>MarketPulse</h1>
       <p class="subtitle">Let's get you set up. This only takes a minute.</p>
       <div class="step-indicator">
         <span class="step active" data-step="1">1</span>
@@ -95,7 +95,8 @@
       <h2>Your Report Email Template</h2>
       <p class="step-desc">Paste your pre-typed email below. Use these placeholders and the app will fill them in automatically:</p>
       <div class="placeholder-guide">
-        <code>{SHOWING_COUNT}</code> — showings in the past 2 weeks<br>
+        <code>{REPORT_PERIOD}</code> — your report frequency (e.g. "two weeks", "one month")<br>
+        <code>{SHOWING_COUNT}</code> — showings in the past reporting period<br>
         <code>{MARKET_SHOWINGS}</code> — avg showings per listing in the area<br>
         <code>{DAYS_ON_MARKET}</code> — your listing's DOM<br>
         <code>{AVG_DOM_ACTIVE}</code> — average DOM for active listings<br>
@@ -112,7 +113,7 @@
         <code>{AGENT_NAME}</code> — the lead agent's name (e.g. Jordan)<br>
       </div>
       <div class="form-group">
-        <textarea id="email-template" rows="14" placeholder="We saw {SHOWING_COUNT} showings over the past two weeks versus the market saw {MARKET_SHOWINGS} showings per listing in your area.
+        <textarea id="email-template" rows="14" placeholder="We saw {SHOWING_COUNT} showings over the past {REPORT_PERIOD} versus the market saw {MARKET_SHOWINGS} showings per listing in your area.
 
 You have seen a total of {TOTAL_SHOWINGS} showings since going live on {LIST_DATE}.
 
@@ -133,6 +134,11 @@ The average days on market for closed homes within the last 90 days is {AVG_DOM_
       <div class="form-group">
         <label for="agent-name">Lead Agent Name</label>
         <input type="text" id="agent-name" placeholder="e.g. Jordan">
+      </div>
+      <div class="form-group">
+        <label for="report-period">Report Frequency</label>
+        <input type="text" id="report-period" value="two months" placeholder="e.g. two months, six weeks, one month">
+        <small>How often you send these reports — used in the email text</small>
       </div>
       <div class="step-actions">
         <button class="btn btn-secondary" onclick="prevStep(3)">Back</button>
@@ -244,6 +250,7 @@ The average days on market for closed homes within the last 90 days is {AVG_DOM_
       const hasTemplate = document.getElementById('email-template').value.length > 20;
       const hasApiKey = document.getElementById('openrouter-key').value.length > 10;
       const model = document.getElementById('openrouter-model').value;
+      const reportPeriod = document.getElementById('report-period').value;
 
       summary.innerHTML = `
         <div class="review-row"><strong>MLS Login:</strong> ${esc(mlsUser) || '(not set)'}</div>
@@ -251,6 +258,7 @@ The average days on market for closed homes within the last 90 days is {AVG_DOM_
         <div class="review-row"><strong>Team Brokerage:</strong> ${esc(teamBrokerage) || '(not set)'}</div>
         <div class="review-row"><strong>Team Members:</strong> ${members.length ? esc(members.join(', ')) : '(none)'}</div>
         <div class="review-row"><strong>Lead Agent:</strong> ${esc(agentName) || '(not set)'}</div>
+        <div class="review-row"><strong>Report Frequency:</strong> ${esc(reportPeriod) || 'two months'}</div>
         <div class="review-row"><strong>Email Template:</strong> ${hasTemplate ? 'Provided' : 'Using default'}</div>
         <div class="review-row"><strong>AI Vision:</strong> ${hasApiKey ? 'Configured' : '(not set — photo analysis will be skipped)'}</div>
         <div class="review-row"><strong>Vision Model:</strong> ${esc(model) || 'google/gemini-2.5-flash'}</div>
@@ -269,6 +277,7 @@ The average days on market for closed homes within the last 90 days is {AVG_DOM_
         teamMembers: document.getElementById('team-members').value.split('\n').filter(Boolean),
         emailTemplate: document.getElementById('email-template').value || document.getElementById('email-template').placeholder,
         agentName: document.getElementById('agent-name').value,
+        reportPeriod: document.getElementById('report-period').value || 'two months',
         openrouterApiKey: document.getElementById('openrouter-key').value,
         openrouterModel: document.getElementById('openrouter-model').value || 'google/gemini-2.5-flash',
       };

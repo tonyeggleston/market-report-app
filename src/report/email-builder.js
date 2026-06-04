@@ -41,6 +41,7 @@ function buildPlainText(config, data) {
     '{SHOWING_FEEDBACK}': feedbackText,
     '{OPEN_HOUSE_NOTES}': data.openHouseNotes || '',
     '{AGENT_NAME}': config.agentName || '',
+    '{REPORT_PERIOD}': config.reportPeriod || 'two months',
   };
 
   for (const [placeholder, value] of Object.entries(replacements)) {
@@ -67,7 +68,8 @@ function buildHtml(config, data) {
 
   parts.push(`<div style="font-family: Calibri, Arial, sans-serif; font-size: 14px; color: #1a1a1a; line-height: 1.6; max-width: 700px;">`);
 
-  parts.push(`<p>We saw <strong>${escHtml(metrics.showingCount)}</strong> showings over the past two weeks versus the market saw <strong>${escHtml(metrics.showingsPerListing)}</strong> showings per listing in your area.</p>`);
+  const period = escHtml(config.reportPeriod || 'two months');
+  parts.push(`<p>We saw <strong>${escHtml(metrics.showingCount)}</strong> showings over the past ${period} versus the market saw <strong>${escHtml(metrics.showingsPerListing)}</strong> showings per listing in your area.</p>`);
 
   parts.push(`<p>You have seen a total of <strong>${escHtml(totalShowings)}</strong> showings since going live on ${escHtml(listDate || '—')}.</p>`);
 
@@ -110,7 +112,7 @@ function buildHtml(config, data) {
     }
     parts.push('</ul>');
   } else {
-    parts.push('<p>No showing feedback was received from agents over the past two weeks.</p>');
+    parts.push(`<p>No showing feedback was received from agents over the past ${period}.</p>`);
   }
 
   if (data.openHouseNotes) {
@@ -226,7 +228,7 @@ function buildStatusChangesPlain(statusChanges, narratives) {
 }
 
 function buildFeedbackPlain(feedback) {
-  if (!feedback?.length) return 'No showing feedback was received from agents over the past two weeks.';
+  if (!feedback?.length) return 'No showing feedback was received from agents over the past {REPORT_PERIOD}.';
 
   const parts = ['Showing feedback received:'];
   for (const fb of feedback) {
@@ -261,7 +263,7 @@ function escHtml(str) {
 }
 
 function getDefaultTemplate() {
-  return `We saw {SHOWING_COUNT} showings over the past two weeks versus the market saw {MARKET_SHOWINGS} showings per listing in your area.
+  return `We saw {SHOWING_COUNT} showings over the past {REPORT_PERIOD} versus the market saw {MARKET_SHOWINGS} showings per listing in your area.
 
 You have seen a total of {TOTAL_SHOWINGS} showings since going live on {LIST_DATE}.
 
