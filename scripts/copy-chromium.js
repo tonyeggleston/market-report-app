@@ -18,8 +18,9 @@ const destDir = path.join(projectRoot, 'build-resources', 'chromium');
 const homeDir = process.env.HOME || process.env.USERPROFILE;
 
 const searchDirs = [
-  path.join(homeDir, 'AppData', 'Local', 'ms-playwright'),
-  path.join(homeDir, '.cache', 'ms-playwright'),
+  path.join(homeDir, 'AppData', 'Local', 'ms-playwright'),       // Windows
+  path.join(homeDir, '.cache', 'ms-playwright'),                  // Linux
+  path.join(homeDir, 'Library', 'Caches', 'ms-playwright'),      // macOS
   process.env.PLAYWRIGHT_BROWSERS_PATH,
 ].filter(Boolean);
 
@@ -74,7 +75,7 @@ function walkForExe(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) walkForExe(full);
-    else if (/^(chrome|chromium|chrome-headless-shell)(\.exe)?$/.test(entry.name))
+    else if (/^(chrome|chromium|chrome-headless-shell|Google Chrome for Testing)(\.exe)?$/i.test(entry.name))
       allExes.push(path.relative(destDir, full));
   }
 }
@@ -86,11 +87,16 @@ if (allExes.length) {
   console.warn('WARNING: No browser executable found in bundle.');
 }
 
-const totalSize = parseInt(execSync(
-  process.platform === 'win32'
-    ? `powershell -command "(Get-ChildItem -Recurse '${destDir}' | Measure-Object -Property Length -Sum).Sum"`
-    : `du -sb "${destDir}" | cut -f1`
-, { encoding: 'utf8' }).trim(), 10);
+let sizeCmd;
+if (process.platform === 'win32') {
+  sizeCmd = `powershell -command "(Get-ChildItem -Recurse '${destDir}' | Measure-Object -Property Length -Sum).Sum"`;
+} else if (process.platform === 'darwin') {
+  // macOS du doesn't support -b; use find + stat instead
+  sizeCmd = `find "${destDir}" -type f -exec stat -f%z {} + | awk '{s+=$1} END {print s}'`;
+} else {
+  sizeCmd = `du -sb "${destDir}" | cut -f1`;
+}
+const totalSize = parseInt(execSync(sizeCmd, { encoding: 'utf8' }).trim(), 10);
 
 console.log(`Chromium bundle size: ${(totalSize / 1024 / 1024).toFixed(0)} MB`);
 console.log('Done.');

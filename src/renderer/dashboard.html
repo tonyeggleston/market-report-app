@@ -5,20 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Market Report Generator</title>
   <link rel="stylesheet" href="styles.css">
-  <style>
-    .phase-list { list-style: none; padding: 0; margin: 16px 0; }
-    .phase-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; font-size: 14px; color: #666; }
-    .phase-item.active { background: #eff6ff; color: #1e40af; font-weight: 600; }
-    .phase-item.done { color: #16a34a; }
-    .phase-item .phase-icon { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #d1d5db; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
-    .phase-item.active .phase-icon { border-color: #2563eb; background: #2563eb; color: #fff; }
-    .phase-item.done .phase-icon { border-color: #16a34a; background: #16a34a; color: #fff; }
-    .phase-detail { font-size: 12px; color: #999; margin-left: 32px; margin-top: -4px; margin-bottom: 4px; }
-    .phase-item.active + .phase-detail { color: #3b82f6; }
-
-    .email-result { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px; margin-top: 16px; white-space: pre-wrap; font-size: 14px; line-height: 1.6; max-height: 400px; overflow-y: auto; }
-    .result-bar { display: flex; gap: 12px; margin-top: 16px; }
-  </style>
 </head>
 <body>
   <div class="dashboard">
@@ -30,6 +16,7 @@
     <!-- Run Section -->
     <section class="run-section" id="run-section">
       <h2>Generate a Report</h2>
+      <p class="run-subtitle">Enter the listing street name and we'll pull everything from MLS and BrokerBay.</p>
       <div class="form-group">
         <label for="listing-address">Listing Street Name</label>
         <input type="text" id="listing-address" placeholder="e.g. 15 Hillcrest">
@@ -60,12 +47,12 @@
     </section>
 
     <!-- Error Display -->
-    <section class="error-section hidden" id="error-section">
-      <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 24px; text-align: center;">
-        <div style="font-size: 32px; margin-bottom: 8px;">&#9888;</div>
-        <h3 style="color: #991b1b; margin-bottom: 8px;">Something went wrong</h3>
-        <p style="color: #7f1d1d; font-size: 14px; margin-bottom: 16px;" id="error-message"></p>
-        <div style="display: flex; gap: 12px; justify-content: center;">
+    <section class="hidden" id="error-section" style="margin-top: 24px;">
+      <div class="error-card">
+        <div class="error-icon">&#9888;</div>
+        <h3>Something went wrong</h3>
+        <p id="error-message"></p>
+        <div class="error-actions">
           <button class="btn btn-primary" onclick="dismissError()">Try Again</button>
           <button class="btn btn-secondary" onclick="openSettings()">Check Settings</button>
         </div>

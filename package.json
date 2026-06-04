@@ -10,7 +10,9 @@
     "copy-chromium": "node scripts/copy-chromium.js",
     "prebuild": "npm run copy-chromium",
     "build": "electron-builder --win --publish never",
-    "build:dir": "electron-builder --win --dir --publish never"
+    "build:dir": "electron-builder --win --dir --publish never",
+    "build:mac": "electron-builder --mac --publish never",
+    "build:mac:dir": "electron-builder --mac --dir --publish never"
   },
   "author": "Tony Eggleston",
   "license": "PRIVATE",
@@ -39,14 +41,24 @@
         "filter": ["**/*"]
       }
     ],
+    "icon": "src/renderer/icon.png",
+    "mac": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": ["arm64"]
+        }
+      ],
+      "category": "public.app-category.business",
+      "identity": null
+    },
     "win": {
       "target": [
         {
           "target": "nsis",
           "arch": ["x64"]
         }
-      ],
-      "icon": "src/renderer/icon.png"
+      ]
     },
     "nsis": {
       "oneClick": true,

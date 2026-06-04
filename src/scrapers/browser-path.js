@@ -5,7 +5,7 @@ import { app } from 'electron';
 let cachedPath = null;
 
 const EXE_NAMES_WIN = ['chrome.exe', 'chromium.exe', 'chrome-headless-shell.exe'];
-const EXE_NAMES_UNIX = ['chrome', 'chromium', 'chrome-headless-shell'];
+const EXE_NAMES_UNIX = ['chrome', 'chromium', 'chrome-headless-shell', 'google chrome for testing'];
 
 function findExeRecursive(dir, names) {
   try {
