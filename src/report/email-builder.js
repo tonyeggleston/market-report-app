@@ -122,7 +122,7 @@ function buildHtml(config, data) {
   parts.push(`<p>The average days on market for closed homes within the last 90 days is <strong>${escHtml(closedStats?.avgDomClosed ?? '—')}</strong> with an average sales price of <strong>${closedStats?.avgSoldPrice ? formatPrice(closedStats.avgSoldPrice) : '—'}</strong>.</p>`);
 
   if (config.agentName) {
-    parts.push(`<p>${escHtml(config.agentName)} will reach out to you to discuss this if she hasn't already. Please let us know if you need anything.</p>`);
+    parts.push(`<p>${escHtml(config.agentName)} will reach out to you to discuss this if they haven't already. Please let us know if you need anything.</p>`);
   }
 
   parts.push('</div>');
@@ -279,5 +279,5 @@ We have been on the market for {DAYS_ON_MARKET} days. The average days on market
 
 The average days on market for closed homes within the last 90 days is {AVG_DOM_CLOSED} with an average sales price of {AVG_SOLD_PRICE}.
 
-{AGENT_NAME} will reach out to you to discuss this if she hasn't already. Please let us know if you need anything.`;
+{AGENT_NAME} will reach out to you to discuss this if they haven't already. Please let us know if you need anything.`;
 }

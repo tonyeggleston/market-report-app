@@ -41,10 +41,12 @@ export async function runReport(listingAddress, onProgress) {
   // ═══════════════════════════════════════════
   // PHASE 1–4: MLS
   // ═══════════════════════════════════════════
-  const { browser: mlsBrowser, page: mlsPage } = await launchMlsBrowser(config);
+  const { browser: mlsBrowser, page: initialPage } = await launchMlsBrowser(config);
 
   try {
-    await loginToMls(mlsPage, config, onProgress);
+    // loginToMls logs in, lands on the NTREIS Dashboard, launches the Matrix
+    // app (new tab), and returns the Matrix page we should work with.
+    const mlsPage = await loginToMls(initialPage, config, onProgress);
     await runSavedSearch(mlsPage, listingAddress, onProgress);
     await switchToAgentSingleLine(mlsPage);
 
