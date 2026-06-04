@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm install --ignore-scripts && npm install --no-save stripe",
+  "installCommand": "mv package.json package.electron.json && echo '{\"dependencies\":{\"stripe\":\"^17.0.0\"}}' > package.json && npm install && mv package.electron.json package.json",
   "buildCommand": "",
   "outputDirectory": "public"
 }
