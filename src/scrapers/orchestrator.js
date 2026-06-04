@@ -8,6 +8,7 @@ import { runSavedSearch, switchToAgentSingleLine, extractCompRows, extractClosed
 import { downloadListingPhotos } from './mls-photos.js';
 import { extractListingDetail, getOurListingDate } from './mls-details.js';
 import { runPriceOnlySearch } from './mls-price-search.js';
+import { ensureBrowser } from './browser-path.js';
 import { launchBrokerBayBrowser, loginToBrokerBay } from './bb-login.js';
 import { pullShowings } from './bb-showings.js';
 import { pullMarketTrends } from './bb-trends.js';
@@ -21,6 +22,11 @@ import { buildEmail } from '../report/email-builder.js';
 export async function runReport(listingAddress, onProgress) {
   const config = getConfig();
   if (!config) throw new Error('App not configured. Run setup first.');
+
+  // Ensure Chromium is available (auto-installs on first run if needed)
+  onProgress('Preparing browser...', 'Checking for Chromium');
+  await ensureBrowser();
+  onProgress('Preparing browser...', 'Ready');
 
   // Sanitize listing address for use as directory name — strip path traversal characters
   const safeName = listingAddress.replace(/[^a-zA-Z0-9 .\-]/g, '').replace(/\s+/g, '-') || 'unnamed';
