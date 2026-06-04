@@ -132,7 +132,16 @@ export async function runReport(listingAddress, onProgress) {
 
     const db = getDb();
 
-    let showingData, trendData;
+    // Defaults so a BrokerBay failure never kills the whole report —
+    // the report still completes with MLS comps, photos, and AI analysis.
+    let showingData = {
+      recentShowings: [],
+      teamShowings: [],
+      totalShowingsSinceLive: 0,
+      feedback: [],
+    };
+    let trendData = { totalAreaShowings: 0, unavailable: true };
+
     try {
       await loginToBrokerBay(bbPage, config, onProgress);
 
@@ -140,14 +149,25 @@ export async function runReport(listingAddress, onProgress) {
         .prepare('SELECT run_date FROM reports WHERE listing_address = ? ORDER BY run_date DESC LIMIT 1')
         .get(listingAddress);
 
-      showingData = await pullShowings(
-        bbPage, config, listingAddress, lastReport?.run_date, onProgress
-      );
+      try {
+        showingData = await pullShowings(
+          bbPage, config, listingAddress, lastReport?.run_date, onProgress
+        );
+      } catch (err) {
+        onProgress('Pulling showings...', `Could not read showings (${err.message}). Continuing.`);
+      }
 
-      const neighborhoodName = listingAddress.split(/\d/)[0]?.trim() || listingAddress;
-      trendData = await pullMarketTrends(bbPage, config, neighborhoodName, priceRange, onProgress);
+      try {
+        const neighborhoodName = listingAddress.split(/\d/)[0]?.trim() || listingAddress;
+        trendData = await pullMarketTrends(bbPage, config, neighborhoodName, priceRange, onProgress);
+      } catch (err) {
+        onProgress('Pulling market trends...', `Could not read market trends (${err.message}). Continuing.`);
+      }
+    } catch (err) {
+      // Login itself failed — surface it, but still finish the report with MLS data
+      onProgress('Logging into BrokerBay...', `BrokerBay unavailable (${err.message}). Continuing with MLS data only.`);
     } finally {
-      await bbBrowser.close();
+      await bbBrowser.close().catch(() => {});
     }
 
     // ═══════════════════════════════════════════
