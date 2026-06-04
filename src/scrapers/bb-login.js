@@ -10,7 +10,7 @@ export async function loginToBrokerBay(page, config, onProgress) {
   }
 
   onProgress('Logging into BrokerBay...', 'Navigating');
-  await page.goto(config.brokerBayUrl, { waitUntil: 'networkidle', timeout: 45000 });
+  await page.goto(config.brokerBayUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
 
   // BrokerBay Edge login flow (Supra One → NTREIS SSO):
   // 1. Enter email → Continue
@@ -125,7 +125,7 @@ export async function loginToBrokerBay(page, config, onProgress) {
     await page.waitForURL('**edge.brokerbay.com**', { timeout: 30000 });
   } catch {
     try {
-      await page.waitForNavigation({ waitUntil: 'networkidle', timeout: 15000 });
+      await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
     } catch { /* may already be there */ }
   }
 

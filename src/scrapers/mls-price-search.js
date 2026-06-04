@@ -6,7 +6,7 @@ export async function runPriceOnlySearch(page, priceMin, priceMax, onProgress) {
   );
   if (criteriaBtn) {
     await criteriaBtn.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
   }
 
   const sqftFields = await page.$$(
@@ -38,7 +38,7 @@ export async function runPriceOnlySearch(page, priceMin, priceMax, onProgress) {
   );
   if (resultsBtn) {
     await resultsBtn.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
   }
 
   const activeCount = await page.evaluate(() => {

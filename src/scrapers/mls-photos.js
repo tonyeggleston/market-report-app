@@ -22,7 +22,7 @@ export async function downloadListingPhotos(page, mlsNumber, outputDir, onProgre
   ]);
 
   const detailPage = newPage || page;
-  await detailPage.waitForLoadState('networkidle');
+  await detailPage.waitForLoadState('domcontentloaded').catch(() => {});
 
   const photoUrls = await detailPage.evaluate(() => {
     const imgs = document.querySelectorAll(

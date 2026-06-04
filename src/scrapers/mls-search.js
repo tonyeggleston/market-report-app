@@ -6,7 +6,7 @@ export async function runSavedSearch(page, listingAddress, onProgress) {
   );
   if (savedSearchLink) {
     await savedSearchLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
   }
 
   await page.waitForTimeout(1500);
@@ -30,7 +30,7 @@ export async function runSavedSearch(page, listingAddress, onProgress) {
   );
   if (resultsBtn) {
     await resultsBtn.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
   }
 
   onProgress('Running saved search...', 'Results loaded');
@@ -43,7 +43,7 @@ export async function switchToAgentSingleLine(page) {
   );
   if (agentLineBtn) {
     await agentLineBtn.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
   }
   return page;
 }

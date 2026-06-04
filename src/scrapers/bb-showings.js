@@ -14,7 +14,7 @@ export async function pullShowings(page, config, listingAddress, lastReportDate,
   );
   if (listingLink) {
     await listingLink.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
   }
 
   const showingsTab = await page.$(
@@ -22,7 +22,7 @@ export async function pullShowings(page, config, listingAddress, lastReportDate,
   );
   if (showingsTab) {
     await showingsTab.click();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
   }
 
   await page.waitForTimeout(1500);

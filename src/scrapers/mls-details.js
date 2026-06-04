@@ -15,7 +15,7 @@ export async function extractListingDetail(page, mlsNumber, onProgress) {
   ]);
 
   const detailPage = newPage || page;
-  await detailPage.waitForLoadState('networkidle');
+  await detailPage.waitForLoadState('domcontentloaded').catch(() => {});
 
   const detail = await detailPage.evaluate(() => {
     const text = document.body.innerText;
@@ -90,7 +90,7 @@ export async function getOurListingDate(page, mlsNumber) {
   if (!mlsLink) return null;
 
   await mlsLink.click();
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded').catch(() => {});
 
   const listDate = await page.evaluate(() => {
     const text = document.body.innerText;
@@ -99,7 +99,7 @@ export async function getOurListingDate(page, mlsNumber) {
   });
 
   await page.goBack();
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded').catch(() => {});
 
   return listDate;
 }

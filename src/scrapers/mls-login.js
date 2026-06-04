@@ -6,7 +6,7 @@ export async function launchMlsBrowser(config) {
 
 export async function loginToMls(page, config, onProgress) {
   onProgress('Logging into MLS...', 'Navigating to Matrix');
-  await page.goto(config.mlsUrl, { waitUntil: 'networkidle', timeout: 45000 });
+  await page.goto(config.mlsUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
 
   await page.waitForSelector(
     'input[name="username"], input[id="username"], input[name="user"], #user',
@@ -38,7 +38,7 @@ export async function loginToMls(page, config, onProgress) {
     await passField.press('Enter');
   }
 
-  await page.waitForNavigation({ waitUntil: 'networkidle', timeout: 30000 });
+  await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 });
 
   const loginFailed = await validateLogin(page);
   if (loginFailed) {
