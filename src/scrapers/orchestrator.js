@@ -48,6 +48,15 @@ export async function runReport(listingAddress, onProgress) {
     await runSavedSearch(mlsPage, listingAddress, onProgress);
     await switchToAgentSingleLine(mlsPage);
 
+    // Diagnostic: save the rendered results page so selectors can be verified
+    // against the real Matrix markup. Saved to the run's output folder.
+    try {
+      const html = await mlsPage.content();
+      fs.writeFileSync(path.join(outputDir, 'debug-mls-results.html'), html);
+      await mlsPage.screenshot({ path: path.join(outputDir, 'debug-mls-results.png'), fullPage: true }).catch(() => {});
+      onProgress('Extracting comp data...', `Saved page snapshot to ${outputDir}`);
+    } catch { /* diagnostics are best-effort */ }
+
     const comps = await extractCompRows(mlsPage, onProgress);
 
     const ourListing = comps.find(

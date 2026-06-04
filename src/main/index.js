@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, shell, clipboard, dialog } from 'electron';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { getConfig, saveConfig, isSetupComplete } from './config.js';
 import { initDb } from '../db/schema.js';
@@ -244,6 +245,13 @@ function registerIpcHandlers() {
     } catch (err) {
       throw new Error(friendlyError(err));
     }
+  });
+
+  ipcMain.handle('report:openFolder', () => {
+    const runsDir = path.join(app.getPath('userData'), 'market-report', 'runs');
+    try { fs.mkdirSync(runsDir, { recursive: true }); } catch { /* ok */ }
+    shell.openPath(runsDir);
+    return { ok: true };
   });
 
   ipcMain.handle('review:back', () => {

@@ -24,6 +24,17 @@ export async function downloadListingPhotos(page, mlsNumber, outputDir, onProgre
   const detailPage = newPage || page;
   await detailPage.waitForLoadState('domcontentloaded').catch(() => {});
 
+  // Diagnostic: save the first listing detail page so photo/detail selectors
+  // can be verified against the real Matrix markup.
+  try {
+    const debugFlag = path.join(outputDir, 'debug-listing-detail.html');
+    if (!fs.existsSync(debugFlag)) {
+      const html = await detailPage.content();
+      fs.writeFileSync(debugFlag, html);
+      await detailPage.screenshot({ path: path.join(outputDir, 'debug-listing-detail.png'), fullPage: true }).catch(() => {});
+    }
+  } catch { /* best-effort */ }
+
   const photoUrls = await detailPage.evaluate(() => {
     const imgs = document.querySelectorAll(
       'img[src*="photo"], img[src*="Photo"], img[src*="image"], img[src*="listing"], img[class*="photo"], img[class*="listing"]'

@@ -45,6 +45,7 @@
       <div class="result-bar">
         <button class="btn btn-primary" onclick="copyEmail()">Copy Email (with Photos)</button>
         <button class="btn btn-secondary" onclick="newReport()">New Report</button>
+        <button class="btn btn-secondary" onclick="window.api.openReportFolder()">Open Report Folder</button>
       </div>
       <div class="email-result" id="email-result"></div>
     </section>
@@ -58,6 +59,7 @@
         <div class="error-actions">
           <button class="btn btn-primary" onclick="dismissError()">Try Again</button>
           <button class="btn btn-secondary" onclick="openSettings()">Check Settings</button>
+          <button class="btn btn-secondary" onclick="window.api.openReportFolder()">Open Report Folder</button>
         </div>
       </div>
     </section>
