@@ -39,11 +39,11 @@
       <p class="step-desc">Your MLS Matrix credentials. Encrypted and stored only on this computer — never sent anywhere.</p>
       <div class="form-group">
         <label for="mls-username">Username</label>
-        <input type="text" id="mls-username" autocomplete="off">
+        <input type="text" id="mls-username" name="mls-user-field" autocomplete="new-password" spellcheck="false">
       </div>
       <div class="form-group">
         <label for="mls-password">Password</label>
-        <input type="password" id="mls-password" autocomplete="off">
+        <input type="password" id="mls-password" name="mls-pass-field" autocomplete="new-password">
       </div>
       <div class="step-actions">
         <button class="btn btn-secondary" onclick="prevStep(1)">Back</button>
@@ -57,11 +57,11 @@
       <p class="step-desc">Your BrokerBay credentials. Same deal — encrypted, local only.</p>
       <div class="form-group">
         <label for="bb-username">Username / Email</label>
-        <input type="text" id="bb-username" autocomplete="off">
+        <input type="text" id="bb-username" name="bb-user-field" autocomplete="new-password" spellcheck="false" value="">
       </div>
       <div class="form-group">
         <label for="bb-password">Password</label>
-        <input type="password" id="bb-password" autocomplete="off">
+        <input type="password" id="bb-password" name="bb-pass-field" autocomplete="new-password" value="">
       </div>
       <div class="step-actions">
         <button class="btn btn-secondary" onclick="prevStep(2)">Back</button>
@@ -80,6 +80,14 @@
       document.querySelector(`.step[data-step="${currentStep}"]`).classList.add('done');
       document.querySelector(`.step[data-step="${step}"]`).classList.add('active');
       currentStep = step;
+
+      // Prevent autocomplete bleed between steps
+      if (step === 3) {
+        const bb = document.getElementById('bb-username');
+        if (!bb.dataset.touched) bb.value = '';
+        bb.dataset.touched = '';
+        bb.addEventListener('input', () => { bb.dataset.touched = '1'; }, { once: true });
+      }
     }
 
     function prevStep(step) {
