@@ -5,6 +5,10 @@ export async function launchBrokerBayBrowser(config) {
 }
 
 export async function loginToBrokerBay(page, config, onProgress) {
+  if (!config.brokerBayUsername || !config.brokerBayUsername.includes('@')) {
+    throw new Error('BrokerBay email not set. Go to Settings and enter your BrokerBay email address.');
+  }
+
   onProgress('Logging into BrokerBay...', 'Navigating');
   await page.goto(config.brokerBayUrl, { waitUntil: 'networkidle', timeout: 45000 });
 

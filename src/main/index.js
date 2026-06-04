@@ -36,6 +36,36 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', page));
 }
 
+function migrateConfig() {
+  try {
+    const config = getConfig();
+    if (!config) return;
+
+    let changed = false;
+
+    // Fix BrokerBay URL if it's the old default
+    if (!config.brokerBayUrl || config.brokerBayUrl === 'https://app.brokerbay.com') {
+      config.brokerBayUrl = 'https://edge.brokerbay.com';
+      changed = true;
+    }
+
+    // Fix BrokerBay username — needs to be an email for Supra One login
+    if (config.brokerBayUsername && !config.brokerBayUsername.includes('@')) {
+      // Old config had a username, not an email — clear it so Settings prompts
+      config.brokerBayUsername = '';
+      changed = true;
+    }
+
+    // Ensure defaults exist
+    if (!config.teamBrokerage) { config.teamBrokerage = 'The Davis Team'; changed = true; }
+    if (!config.agentName) { config.agentName = 'Bryan'; changed = true; }
+    if (!config.reportPeriod) { config.reportPeriod = 'two months'; changed = true; }
+    if (!config.openrouterModel) { config.openrouterModel = 'google/gemini-2.5-flash'; changed = true; }
+
+    if (changed) saveConfig(config);
+  } catch { /* first run, no config yet */ }
+}
+
 app.whenReady().then(() => {
   try {
     initDb();
@@ -47,6 +77,7 @@ app.whenReady().then(() => {
     app.quit();
     return;
   }
+  migrateConfig();
   registerIpcHandlers();
   createWindow();
 });

@@ -281,16 +281,12 @@
           <input type="url" id="s-mls-url" value="${escAttr(config.mlsUrl)}">
         </div>
         <div class="form-group">
-          <label>BrokerBay Username</label>
-          <input type="text" id="s-bb-user" value="${escAttr(config.brokerBayUsername)}">
-        </div>
-        <div class="form-group">
-          <label>BrokerBay Password</label>
-          <input type="password" id="s-bb-pass" value="" placeholder="(unchanged — leave blank to keep)">
+          <label>BrokerBay Email</label>
+          <input type="email" id="s-bb-user" value="${escAttr(config.brokerBayUsername)}" placeholder="e.g. sarah@yourdavisteam.com">
         </div>
         <div class="form-group">
           <label>BrokerBay URL</label>
-          <input type="url" id="s-bb-url" value="${escAttr(config.brokerBayUrl || 'https://app.brokerbay.com')}">
+          <input type="url" id="s-bb-url" value="${escAttr(config.brokerBayUrl || 'https://edge.brokerbay.com')}">
         </div>
         <div class="form-group">
           <label>Team Brokerage</label>
@@ -336,7 +332,6 @@
         mlsPassword: document.getElementById('s-mls-pass').value,
         mlsUrl: document.getElementById('s-mls-url').value,
         brokerBayUsername: document.getElementById('s-bb-user').value,
-        brokerBayPassword: document.getElementById('s-bb-pass').value,
         brokerBayUrl: document.getElementById('s-bb-url').value,
         teamBrokerage: document.getElementById('s-team-brok').value,
         teamMembers: document.getElementById('s-team-members').value.split('\n').filter(Boolean),
