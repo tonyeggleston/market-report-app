@@ -1,5 +1,5 @@
 {
   "buildCommand": "",
-  "installCommand": "npm install stripe",
+  "installCommand": "",
   "outputDirectory": "public"
 }
