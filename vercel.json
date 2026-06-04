@@ -1,10 +1,5 @@
 {
   "buildCommand": "",
   "installCommand": "npm install stripe",
-  "outputDirectory": "public",
-  "functions": {
-    "api/*.js": {
-      "runtime": "@vercel/node@3"
-    }
-  }
+  "outputDirectory": "public"
 }
