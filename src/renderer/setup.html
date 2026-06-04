@@ -51,17 +51,13 @@
       </div>
     </section>
 
-    <!-- Step 3: BrokerBay Credentials -->
+    <!-- Step 3: BrokerBay Email -->
     <section class="wizard-step hidden" id="step-3">
-      <h2>Showing Platform Login</h2>
-      <p class="step-desc">Your BrokerBay credentials. Same deal — encrypted, local only.</p>
+      <h2>BrokerBay Email</h2>
+      <p class="step-desc">The email you use to sign into BrokerBay. Your MLS credentials handle the actual login — we just need the email for the first step.</p>
       <div class="form-group">
-        <label for="bb-username">Username / Email</label>
-        <input type="text" id="bb-username" name="bb-user-field" autocomplete="new-password" spellcheck="false" value="">
-      </div>
-      <div class="form-group">
-        <label for="bb-password">Password</label>
-        <input type="password" id="bb-password" name="bb-pass-field" autocomplete="new-password" value="">
+        <label for="bb-email">BrokerBay Email</label>
+        <input type="email" id="bb-email" name="bb-email-field" autocomplete="new-password" spellcheck="false" placeholder="e.g. sarah@yourdavisteam.com">
       </div>
       <div class="step-actions">
         <button class="btn btn-secondary" onclick="prevStep(2)">Back</button>
@@ -111,8 +107,8 @@
         mlsUsername: document.getElementById('mls-username').value,
         mlsPassword: document.getElementById('mls-password').value,
         mlsUrl: 'https://matrix.ntreis.net',
-        brokerBayUsername: document.getElementById('bb-username').value,
-        brokerBayPassword: document.getElementById('bb-password').value,
+        brokerBayUsername: document.getElementById('bb-email').value,
+        brokerBayPassword: '',
         brokerBayUrl: 'https://edge.brokerbay.com',
         teamBrokerage: 'The Davis Team',
         teamMembers: ['Bryan Lemke'],
