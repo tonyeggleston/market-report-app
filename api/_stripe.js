@@ -36,13 +36,34 @@ export async function stripePost(path, params) {
   return data;
 }
 
-// Find a customer by the license_key stored in their metadata.
-export async function findCustomerByLicense(licenseKey) {
-  // Stripe search query — escape single quotes in the key defensively.
+// Find ALL customers with this license_key (handles accidental duplicates).
+export async function findCustomersByLicense(licenseKey) {
   const safe = licenseKey.replace(/'/g, '');
   const q = encodeURIComponent(`metadata['license_key']:'${safe}'`);
-  const result = await stripeGet(`/customers/search?query=${q}&limit=1`);
-  return result.data?.[0] || null;
+  const result = await stripeGet(`/customers/search?query=${q}&limit=10`);
+  return result.data || [];
+}
+
+// Resolve the account for a license key: prefer the customer that actually has
+// an active/past_due subscription. Falls back to the first customer found so
+// callers can still distinguish "invalid key" from "no subscription".
+export async function resolveAccount(licenseKey) {
+  const customers = await findCustomersByLicense(licenseKey);
+  if (!customers.length) return { customer: null, sub: null, status: 'none' };
+
+  let firstCustomer = customers[0];
+  for (const customer of customers) {
+    const { sub, status } = await getSubscription(customer.id);
+    if (sub) return { customer, sub, status };
+  }
+  // No subscription on any matching customer.
+  return { customer: firstCustomer, sub: null, status: 'none' };
+}
+
+// Back-compat: single-customer lookup (first match).
+export async function findCustomerByLicense(licenseKey) {
+  const customers = await findCustomersByLicense(licenseKey);
+  return customers[0] || null;
 }
 
 // Get the active (or past_due) subscription for a customer.

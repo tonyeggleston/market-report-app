@@ -1,4 +1,4 @@
-import { findCustomerByLicense, getSubscription, planFromSubscription, setCustomerMetadata, stripePost } from './_stripe.js';
+import { resolveAccount, planFromSubscription, setCustomerMetadata, stripePost } from './_stripe.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -7,10 +7,10 @@ export default async function handler(req, res) {
   if (!licenseKey) return res.status(400).json({ error: 'Missing licenseKey' });
 
   try {
-    const customer = await findCustomerByLicense(licenseKey);
+    const { customer, sub } = await resolveAccount(licenseKey);
     if (!customer) return res.status(404).json({ error: 'Invalid license key' });
 
-    // Increment usage counter.
+    // Increment usage counter (on the customer that holds the subscription).
     const currentUsed = parseInt(customer.metadata?.reports_used_current_period || '0', 10);
     const newCount = currentUsed + 1;
 
@@ -18,7 +18,6 @@ export default async function handler(req, res) {
     await setCustomerMetadata(customer.id, 'last_report_at', completedAt || new Date().toISOString()).catch(() => {});
 
     // Determine if this is an overage report.
-    const { sub } = await getSubscription(customer.id);
     if (sub) {
       const { reportsIncluded, overageRate } = await planFromSubscription(sub);
 

@@ -1,4 +1,4 @@
-import { findCustomerByLicense, getSubscription, planFromSubscription, formatPeriodEnd } from './_stripe.js';
+import { resolveAccount, planFromSubscription, formatPeriodEnd } from './_stripe.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -7,12 +7,11 @@ export default async function handler(req, res) {
   if (!licenseKey) return res.status(400).json({ error: 'Missing licenseKey' });
 
   try {
-    const customer = await findCustomerByLicense(licenseKey);
+    const { customer, sub, status } = await resolveAccount(licenseKey);
+
     if (!customer) {
       return res.json({ active: false, reason: 'invalid-key', message: 'Invalid license key.' });
     }
-
-    const { sub, status } = await getSubscription(customer.id);
 
     if (!sub) {
       return res.json({ active: false, reason: 'no-subscription', message: 'No active subscription found.' });
