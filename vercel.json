@@ -1,4 +1,5 @@
 {
   "installCommand": "",
+  "buildCommand": "echo 'No web build step — static public/ served as-is, /api compiled as serverless functions'",
   "outputDirectory": "public"
 }
