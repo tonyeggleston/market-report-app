@@ -1,5 +1,4 @@
 {
-  "installCommand": "",
-  "buildCommand": "echo 'No web build step — static public/ served as-is, /api compiled as serverless functions'",
+  "installCommand": "npm install --ignore-scripts",
   "outputDirectory": "public"
 }
