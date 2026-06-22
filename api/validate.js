@@ -26,7 +26,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const { planName, reportsIncluded, overageRate } = planFromSubscription(sub);
+    const { planName, reportsIncluded, overageRate } = await planFromSubscription(sub);
     const reportsUsed = parseInt(customer.metadata?.reports_used_current_period || '0', 10);
 
     return res.json({

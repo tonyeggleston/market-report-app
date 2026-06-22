@@ -45,25 +45,35 @@ export async function findCustomerByLicense(licenseKey) {
   return result.data?.[0] || null;
 }
 
-// Get the active (or past_due) subscription for a customer, with the product expanded
-// so we can read plan metadata (reports_included, overage_rate, plan_name).
+// Get the active (or past_due) subscription for a customer.
+// No deep expand — price.product comes back as an ID, fetched separately in
+// planFromSubscription (Stripe caps expand depth, so deep expands error out).
 export async function getSubscription(customerId) {
-  const expand = '&expand[]=data.items.data.price.product';
-  const active = await stripeGet(`/subscriptions?customer=${customerId}&status=active&limit=1${expand}`);
+  const active = await stripeGet(`/subscriptions?customer=${customerId}&status=active&limit=1`);
   if (active.data?.length) return { sub: active.data[0], status: 'active' };
 
-  const pastDue = await stripeGet(`/subscriptions?customer=${customerId}&status=past_due&limit=1${expand}`);
+  const pastDue = await stripeGet(`/subscriptions?customer=${customerId}&status=past_due&limit=1`);
   if (pastDue.data?.length) return { sub: pastDue.data[0], status: 'past_due' };
 
-  const trialing = await stripeGet(`/subscriptions?customer=${customerId}&status=trialing&limit=1${expand}`);
+  const trialing = await stripeGet(`/subscriptions?customer=${customerId}&status=trialing&limit=1`);
   if (trialing.data?.length) return { sub: trialing.data[0], status: 'active' };
 
   return { sub: null, status: 'none' };
 }
 
-// Plan metadata lives on the product. Read it from the expanded subscription.
-export function planFromSubscription(sub) {
-  const product = sub?.items?.data?.[0]?.price?.product;
+// Plan metadata lives on the product. Resolve the product (id or object) and read it.
+export async function planFromSubscription(sub) {
+  let product = sub?.items?.data?.[0]?.price?.product;
+
+  // price.product is usually an ID string — fetch the product to get its metadata.
+  if (product && typeof product === 'string') {
+    try {
+      product = await stripeGet(`/products/${product}`);
+    } catch {
+      product = null;
+    }
+  }
+
   const meta = (product && typeof product === 'object' ? product.metadata : null) || {};
   return {
     planName: meta.plan_name || 'Standard',

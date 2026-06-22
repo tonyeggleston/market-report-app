@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     // Determine if this is an overage report.
     const { sub } = await getSubscription(customer.id);
     if (sub) {
-      const { reportsIncluded, overageRate } = planFromSubscription(sub);
+      const { reportsIncluded, overageRate } = await planFromSubscription(sub);
 
       if (newCount > reportsIncluded && overageRate > 0) {
         // One-time invoice item for the overage, then invoice + auto-charge.
