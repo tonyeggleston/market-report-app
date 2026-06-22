@@ -1,4 +1,5 @@
 {
   "installCommand": "npm install --ignore-scripts",
+  "buildCommand": "echo 'no-build — public/ served as-is, /api compiled as serverless functions'",
   "outputDirectory": "public"
 }
