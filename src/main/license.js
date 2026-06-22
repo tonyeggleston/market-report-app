@@ -128,7 +128,7 @@ export async function validateLicense() {
         plan: 'Offline',
         reportsIncluded: 15,
         reportsUsed: 0,
-        overageRate: 8.00,
+        overageRate: 15.00,
         offline: true,
         message: 'License server unavailable — running in offline mode.',
       };
