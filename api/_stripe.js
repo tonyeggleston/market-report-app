@@ -104,7 +104,9 @@ export async function planFromSubscription(sub) {
 }
 
 export function formatPeriodEnd(sub) {
-  const end = sub?.current_period_end;
+  // Under Stripe's flexible billing the period moved to the line item, so fall
+  // back to the item's current_period_end when the top-level field is absent.
+  const end = sub?.current_period_end || sub?.items?.data?.[0]?.current_period_end;
   if (!end) return null;
   return new Date(end * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
