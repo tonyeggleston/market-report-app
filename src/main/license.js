@@ -105,48 +105,33 @@ export async function validateLicense() {
 
     return result;
   } catch (err) {
-    // Network failure — use cached status if available
+    // Network failure — fall back to a cached result, but ONLY if this key was
+    // genuinely validated against the server before. We do NOT grant offline
+    // access to an arbitrary key, or the offline path becomes a trivial bypass
+    // (type any string, block the network, run free). See billing audit.
     const local = readLocalLicense();
-    if (local?.cachedStatus && local?.lastValidation) {
-      const lastCheck = new Date(local.lastValidation);
-      const daysSince = (Date.now() - lastCheck.getTime()) / (1000 * 60 * 60 * 24);
+    const cachedIsServerVerified =
+      local?.cachedStatus?.active &&
+      !local.cachedStatus.offline &&            // must be a real server result, not a prior offline grant
+      local.cachedStatus.customerId &&          // server results carry the Stripe customer id
+      local.licenseKey === licenseKey &&        // cached result must belong to THIS key
+      local.lastValidation;
 
-      if (daysSince <= 30) {
+    if (cachedIsServerVerified) {
+      const daysSince = (Date.now() - new Date(local.lastValidation).getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSince <= 14) {
         return {
           ...local.cachedStatus,
           offline: true,
-          message: `Using cached license (last verified ${Math.round(daysSince)} days ago).`,
+          message: `Using cached license (last verified ${Math.round(daysSince)} days ago). Reconnect to re-validate.`,
         };
       }
-    }
-
-    // No cached status but key exists — grant offline access with defaults
-    // This covers first-time setup when the API isn't deployed yet
-    if (licenseKey) {
-      const offlineStatus = {
-        active: true,
-        plan: 'Offline',
-        reportsIncluded: 15,
-        reportsUsed: 0,
-        overageRate: 15.00,
-        offline: true,
-        message: 'License server unavailable — running in offline mode.',
-      };
-
-      // Cache this so subsequent checks use it
-      const localData = readLocalLicense() || {};
-      localData.licenseKey = licenseKey;
-      localData.lastValidation = new Date().toISOString();
-      localData.cachedStatus = offlineStatus;
-      writeLocalLicense(localData);
-
-      return offlineStatus;
     }
 
     return {
       active: false,
       reason: 'network-error',
-      message: `Could not reach the license server: ${err.message}. Check your internet connection.`,
+      message: `Could not reach the license server: ${err.message}. Connect to the internet so your license can be verified.`,
     };
   }
 }

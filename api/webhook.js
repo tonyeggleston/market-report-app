@@ -13,6 +13,9 @@ async function readRawBody(readable) {
   return Buffer.concat(chunks);
 }
 
+// Reject events whose signature timestamp is older than this (replay defense).
+const MAX_SIGNATURE_AGE_SECONDS = 300; // 5 minutes, matching Stripe's default tolerance
+
 // Verify Stripe's signature header without the stripe library.
 // Header format: t=<timestamp>,v1=<signature>
 function verifySignature(rawBody, sigHeader, secret) {
@@ -23,6 +26,12 @@ function verifySignature(rawBody, sigHeader, secret) {
   const timestamp = parts.t;
   const expected = parts.v1;
   if (!timestamp || !expected) return false;
+
+  // Reject stale signatures so a captured event can't be replayed later.
+  const age = Math.floor(Date.now() / 1000) - parseInt(timestamp, 10);
+  if (!Number.isFinite(age) || age > MAX_SIGNATURE_AGE_SECONDS || age < -MAX_SIGNATURE_AGE_SECONDS) {
+    return false;
+  }
 
   const signedPayload = `${timestamp}.${rawBody.toString('utf8')}`;
   const computed = crypto.createHmac('sha256', secret).update(signedPayload).digest('hex');
@@ -55,16 +64,20 @@ export default async function handler(req, res) {
   try {
     if (event.type === 'invoice.paid') {
       const invoice = event.data.object;
-      // Reset usage at the start of each billing cycle.
+      // Reset usage (and clear any pending overage) at the start of each cycle.
+      // Idempotent: setting to '0' twice is harmless.
       if (invoice.billing_reason === 'subscription_cycle' && invoice.customer) {
         await setCustomerMetadata(invoice.customer, 'reports_used_current_period', '0');
+        await setCustomerMetadata(invoice.customer, 'overage_pending', '0').catch(() => {});
         await setCustomerMetadata(invoice.customer, 'period_reset_at', new Date().toISOString()).catch(() => {});
       }
     }
-    // Other event types (subscription.deleted/updated) are acknowledged without action for now.
+    // Other event types are acknowledged without action for now.
   } catch (err) {
+    // Surface the failure so Stripe retries (it backs off and gives up after
+    // ~3 days). Swallowing this would silently drop a counter reset.
     console.error('Webhook handler error:', err);
-    // Still 200 so Stripe doesn't retry forever on a transient metadata write.
+    return res.status(500).json({ error: 'Handler failed; will retry' });
   }
 
   return res.json({ received: true });
