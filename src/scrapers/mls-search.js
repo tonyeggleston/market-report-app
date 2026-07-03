@@ -1,8 +1,10 @@
+import { sel } from './selectors.js';
+
 export async function runSavedSearch(page, listingAddress, onProgress) {
   onProgress('Running saved search...', `Looking for "${listingAddress}"`);
 
   const savedSearchLink = await page.$(
-    'a:has-text("Saved Searches"), a[href*="SavedSearch"], a[href*="saved"], #savedSearches'
+    sel('mls.search.savedSearchLink', 'a:has-text("Saved Searches"), a[href*="SavedSearch"], a[href*="saved"], #savedSearches')
   );
   if (savedSearchLink) {
     await savedSearchLink.click();
@@ -12,7 +14,7 @@ export async function runSavedSearch(page, listingAddress, onProgress) {
   await page.waitForTimeout(1500);
 
   const searchInput = await page.$(
-    'input[type="text"][name*="search"], input[placeholder*="Search"], input[placeholder*="search"], #searchInput'
+    sel('mls.search.searchInput', 'input[type="text"][name*="search"], input[placeholder*="Search"], input[placeholder*="search"], #searchInput')
   );
   if (searchInput) {
     await searchInput.fill(listingAddress);
@@ -26,7 +28,7 @@ export async function runSavedSearch(page, listingAddress, onProgress) {
   }
 
   const resultsBtn = await page.$(
-    'button:has-text("Results"), input[value="Results"], a:has-text("Results"), #resultsButton'
+    sel('mls.search.resultsButton', 'button:has-text("Results"), input[value="Results"], a:has-text("Results"), #resultsButton')
   );
   if (resultsBtn) {
     await resultsBtn.click();
@@ -39,7 +41,7 @@ export async function runSavedSearch(page, listingAddress, onProgress) {
 
 export async function switchToAgentSingleLine(page) {
   const agentLineBtn = await page.$(
-    'a:has-text("Agent Single Line"), button:has-text("Agent Single Line"), a:has-text("Agt Single"), select option:has-text("Agent Single")'
+    sel('mls.search.agentSingleLine', 'a:has-text("Agent Single Line"), button:has-text("Agent Single Line"), a:has-text("Agt Single"), select option:has-text("Agent Single")')
   );
   if (agentLineBtn) {
     await agentLineBtn.click();
@@ -51,10 +53,9 @@ export async function switchToAgentSingleLine(page) {
 export async function extractCompRows(page, onProgress) {
   onProgress('Extracting comp data...', 'Reading listing rows');
 
-  const comps = await page.evaluate(() => {
-    const rows = document.querySelectorAll(
-      'table.display tbody tr, table.results tbody tr, tr[class*="listing"], table tbody tr'
-    );
+  const rowSel = sel('mls.results.rows', 'table.display tbody tr, table.results tbody tr, tr[class*="listing"], table tbody tr');
+  const comps = await page.evaluate((rowSelector) => {
+    const rows = document.querySelectorAll(rowSelector);
     const results = [];
 
     for (const row of rows) {
@@ -107,7 +108,7 @@ export async function extractCompRows(page, onProgress) {
       });
     }
     return results;
-  });
+  }, rowSel);
 
   onProgress('Extracting comp data...', `Found ${comps.length} listings`);
   return comps;

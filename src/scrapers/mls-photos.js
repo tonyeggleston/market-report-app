@@ -2,13 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import https from 'node:https';
 import http from 'node:http';
+import { sel } from './selectors.js';
+import { capturePage } from './capture.js';
 
 export async function downloadListingPhotos(page, mlsNumber, outputDir, onProgress) {
   const photoDir = path.join(outputDir, 'photos', mlsNumber);
   fs.mkdirSync(photoDir, { recursive: true });
 
   const mlsLink = await page.$(
-    `a:has-text("${mlsNumber}"), td:has-text("${mlsNumber}") a, a[href*="${mlsNumber}"]`
+    sel('mls.listingLink', `a:has-text("${mlsNumber}"), td:has-text("${mlsNumber}") a, a[href*="${mlsNumber}"]`)
   );
 
   if (!mlsLink) {
@@ -35,10 +37,14 @@ export async function downloadListingPhotos(page, mlsNumber, outputDir, onProgre
     }
   } catch { /* best-effort */ }
 
-  const photoUrls = await detailPage.evaluate(() => {
-    const imgs = document.querySelectorAll(
-      'img[src*="photo"], img[src*="Photo"], img[src*="image"], img[src*="listing"], img[class*="photo"], img[class*="listing"]'
-    );
+  // Capture mode: save EVERY listing detail page so all selectors can be fixed
+  // against real markup in one pass.
+  await capturePage(detailPage, `listing-detail-${mlsNumber}`);
+
+  const photoImgSel = sel('mls.photos.images', 'img[src*="photo"], img[src*="Photo"], img[src*="image"], img[src*="listing"], img[class*="photo"], img[class*="listing"]');
+  const photoLinkSel = sel('mls.photos.links', 'a[href*="photo"], a[href*="Photo"]');
+  const photoUrls = await detailPage.evaluate(({ imgSel, linkSel }) => {
+    const imgs = document.querySelectorAll(imgSel);
 
     const urls = new Set();
     for (const img of imgs) {
@@ -55,13 +61,13 @@ export async function downloadListingPhotos(page, mlsNumber, outputDir, onProgre
       }
     }
 
-    const links = document.querySelectorAll('a[href*="photo"], a[href*="Photo"]');
+    const links = document.querySelectorAll(linkSel);
     for (const link of links) {
       if (link.href) urls.add(link.href);
     }
 
     return Array.from(urls).slice(0, 40);
-  });
+  }, { imgSel: photoImgSel, linkSel: photoLinkSel });
 
   onProgress('Downloading photos...', `${mlsNumber}: ${photoUrls.length} photos found`);
 

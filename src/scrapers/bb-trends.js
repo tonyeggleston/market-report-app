@@ -1,8 +1,11 @@
+import { sel } from './selectors.js';
+import { capturePage } from './capture.js';
+
 export async function pullMarketTrends(page, config, neighborhoodName, priceRange, onProgress) {
   onProgress('Pulling market trends...', 'Navigating to Analytics');
 
   const analyticsLink = await page.$(
-    'a:has-text("Analytics"), [href*="analytics"], button:has-text("Analytics"), nav a:has-text("Analytics")'
+    sel('bb.trends.analyticsLink', 'a:has-text("Analytics"), [href*="analytics"], button:has-text("Analytics"), nav a:has-text("Analytics")')
   );
   if (analyticsLink) {
     await analyticsLink.click();
@@ -10,7 +13,7 @@ export async function pullMarketTrends(page, config, neighborhoodName, priceRang
   }
 
   const marketTrendsLink = await page.$(
-    'a:has-text("Market Trends"), button:has-text("Market Trends"), [href*="market-trends"], [href*="marketTrends"]'
+    sel('bb.trends.marketTrendsLink', 'a:has-text("Market Trends"), button:has-text("Market Trends"), [href*="market-trends"], [href*="marketTrends"]')
   );
   if (marketTrendsLink) {
     await marketTrendsLink.click();
@@ -18,6 +21,7 @@ export async function pullMarketTrends(page, config, neighborhoodName, priceRang
   }
 
   await page.waitForTimeout(1500);
+  await capturePage(page, 'bb-market-trends');
 
   // Step 1: Set custom date range to 2 weeks
   onProgress('Pulling market trends...', 'Setting date range to 2 weeks');

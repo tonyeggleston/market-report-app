@@ -1,4 +1,6 @@
 import { launchBrowser, delay, validateLogin } from './browser-helpers.js';
+import { sel } from './selectors.js';
+import { capturePage } from './capture.js';
 
 export async function launchMlsBrowser(config) {
   return launchBrowser(config);
@@ -7,18 +9,15 @@ export async function launchMlsBrowser(config) {
 export async function loginToMls(page, config, onProgress) {
   onProgress('Logging into MLS...', 'Navigating to Matrix');
   await page.goto(config.mlsUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+  await capturePage(page, 'mls-login-page');
 
-  await page.waitForSelector(
-    'input[name="username"], input[id="username"], input[name="user"], #user',
-    { timeout: 15000 }
-  );
+  const userSel = sel('mls.login.username', 'input[name="username"], input[id="username"], input[name="user"], #user');
+  const passSel = sel('mls.login.password', 'input[name="password"], input[id="password"], input[name="pass"], #pass');
 
-  const userField = await page.$(
-    'input[name="username"], input[id="username"], input[name="user"], #user'
-  );
-  const passField = await page.$(
-    'input[name="password"], input[id="password"], input[name="pass"], #pass'
-  );
+  await page.waitForSelector(userSel, { timeout: 15000 });
+
+  const userField = await page.$(userSel);
+  const passField = await page.$(passSel);
 
   if (!userField || !passField) {
     throw new Error('Could not find MLS login fields. The login page may have changed.');
@@ -30,7 +29,7 @@ export async function loginToMls(page, config, onProgress) {
   await delay(300);
 
   const submitBtn = await page.$(
-    'button[type="submit"], input[type="submit"], button:has-text("Log In"), button:has-text("Login"), button:has-text("Sign In")'
+    sel('mls.login.submit', 'button[type="submit"], input[type="submit"], button:has-text("Log In"), button:has-text("Login"), button:has-text("Sign In")')
   );
   if (submitBtn) {
     await submitBtn.click();
@@ -46,6 +45,7 @@ export async function loginToMls(page, config, onProgress) {
   }
 
   onProgress('Logging into MLS...', 'Logged in');
+  await capturePage(page, 'ntreis-dashboard-portal');
 
   // After NTREIS login we land on the MetroTex/NTREIS Dashboard portal,
   // not Matrix itself. We must click the "Matrix" app tile to launch it.
@@ -70,18 +70,23 @@ async function launchMatrixApp(page, onProgress) {
   //   </div></app-standard-app>
   // The CLICK HANDLER is on the .app-icon (id 386 for Matrix), not the title.
   // Launching opens Matrix in a new tab (or sometimes same tab).
-  const clickTargets = [
+  const defaultTargets = [
     '#386',                                                        // Matrix app-icon (Clareity app id)
     'app-standard-app:has(h4.apptitle:text-is("Matrix")) .app-icon',
     'app-standard-app:has(h4.apptitle:text-is("Matrix")) img',
     '.app-icon:right-of(:text-is("Matrix"))',
     '#appDetailmatrix',
   ];
+  // Override via config with a '|||'-separated list of selectors to try in order.
+  const targetOverride = sel('mls.portal.matrixTargets', '');
+  const clickTargets = targetOverride
+    ? targetOverride.split('|||').map((s) => s.trim()).filter(Boolean)
+    : defaultTargets;
 
   let clicked = false;
-  for (const sel of clickTargets) {
+  for (const target of clickTargets) {
     try {
-      const el = await page.waitForSelector(sel, { timeout: 6000 });
+      const el = await page.waitForSelector(target, { timeout: 6000 });
       if (!el) continue;
 
       // Click and watch for a new tab opening at the same time.

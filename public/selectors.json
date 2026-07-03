@@ -1,0 +1,4 @@
+{
+  "_comment": "Selector overrides for MarketPulse scrapers. Add a dotted key (e.g. 'mls.results.rows') with a CSS selector string to override the app's bundled default WITHOUT a rebuild. Only string values are used; everything else is ignored. Deploy this file to override; the app fetches it at the start of each run.",
+  "_version": 1
+}

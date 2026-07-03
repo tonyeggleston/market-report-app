@@ -1,4 +1,6 @@
 import { launchBrowser, delay, validateLogin } from './browser-helpers.js';
+import { sel } from './selectors.js';
+import { capturePage } from './capture.js';
 
 export async function launchBrokerBayBrowser(config) {
   return launchBrowser(config);
@@ -11,6 +13,7 @@ export async function loginToBrokerBay(page, config, onProgress) {
 
   onProgress('Logging into BrokerBay...', 'Navigating');
   await page.goto(config.brokerBayUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+  await capturePage(page, 'bb-supra-email');
 
   // BrokerBay Edge login flow (Supra One → NTREIS SSO):
   // 1. Enter email → Continue
@@ -20,14 +23,10 @@ export async function loginToBrokerBay(page, config, onProgress) {
 
   // Step 1: Enter email on Supra One
   onProgress('Logging into BrokerBay...', 'Entering email');
-  await page.waitForSelector(
-    'input[type="email"], input[placeholder*="Email"]',
-    { timeout: 20000 }
-  );
+  const bbEmailSel = sel('bb.login.email', 'input[type="email"], input[placeholder*="Email"]');
+  await page.waitForSelector(bbEmailSel, { timeout: 20000 });
 
-  const emailField = await page.$(
-    'input[type="email"], input[placeholder*="Email"]'
-  );
+  const emailField = await page.$(bbEmailSel);
   if (!emailField) throw new Error('Could not find BrokerBay email field.');
 
   await emailField.fill(config.brokerBayUsername);
@@ -35,7 +34,7 @@ export async function loginToBrokerBay(page, config, onProgress) {
 
   // Click Continue
   const continueBtn = await page.$(
-    'button[type="submit"], button:has-text("Continue")'
+    sel('bb.login.continue', 'button[type="submit"], button:has-text("Continue")')
   );
   if (continueBtn) {
     await continueBtn.click();
@@ -46,10 +45,11 @@ export async function loginToBrokerBay(page, config, onProgress) {
   // Step 2: Wait for IdP choice screen, click "Log in with NTREIS"
   onProgress('Logging into BrokerBay...', 'Selecting NTREIS login');
   await delay(2000);
+  await capturePage(page, 'bb-idp-choice');
 
   // Look for the NTREIS button — it might say "Log in with NTREIS" or similar
   const ntreidBtn = await page.$(
-    'button:has-text("NTREIS"), a:has-text("NTREIS"), button:has-text("Log in with NTREIS")'
+    sel('bb.login.ntreisButton', 'button:has-text("NTREIS"), a:has-text("NTREIS"), button:has-text("Log in with NTREIS")')
   );
 
   if (ntreidBtn) {
@@ -78,9 +78,10 @@ export async function loginToBrokerBay(page, config, onProgress) {
 
   // Step 3: NTREIS login page — enter MLS credentials
   onProgress('Logging into BrokerBay...', 'Entering MLS credentials');
+  await capturePage(page, 'bb-ntreis-login');
   try {
     await page.waitForSelector(
-      'input[placeholder="Username"], input[name="username"], input[type="text"]',
+      sel('bb.login.ntreisUsername', 'input[placeholder="Username"], input[name="username"], input[type="text"]'),
       { timeout: 15000 }
     );
   } catch {
@@ -95,9 +96,9 @@ export async function loginToBrokerBay(page, config, onProgress) {
 
   // Use MLS credentials for NTREIS login
   const userField = await page.$(
-    'input[placeholder="Username"], input[name="username"], input[type="text"]:not([type="hidden"])'
+    sel('bb.login.ntreisUsernameField', 'input[placeholder="Username"], input[name="username"], input[type="text"]:not([type="hidden"])')
   );
-  const passField = await page.$('input[type="password"], input[placeholder="Password"]');
+  const passField = await page.$(sel('bb.login.ntreisPassword', 'input[type="password"], input[placeholder="Password"]'));
 
   if (!userField || !passField) {
     throw new Error('Could not find NTREIS login fields.');
@@ -111,7 +112,7 @@ export async function loginToBrokerBay(page, config, onProgress) {
 
   // Click "Password Login" button
   const loginBtn = await page.$(
-    'button:has-text("Password Login"), button:has-text("Login"), button:has-text("Log In"), button:has-text("Sign In"), button[type="submit"]'
+    sel('bb.login.passwordLogin', 'button:has-text("Password Login"), button:has-text("Login"), button:has-text("Log In"), button:has-text("Sign In"), button[type="submit"]')
   );
   if (loginBtn) {
     await loginBtn.click();
@@ -137,5 +138,6 @@ export async function loginToBrokerBay(page, config, onProgress) {
   }
 
   onProgress('Logging into BrokerBay...', 'Logged in');
+  await capturePage(page, 'bb-home-after-login');
   return page;
 }

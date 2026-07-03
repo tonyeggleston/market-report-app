@@ -22,7 +22,7 @@ contextBridge.exposeInMainWorld('api', {
   isSetupComplete: () => ipcRenderer.invoke('config:isSetupComplete'),
   completeSetup: (config) => ipcRenderer.invoke('setup:complete', config),
 
-  runReport: (listingAddress) => ipcRenderer.invoke('report:run', listingAddress),
+  runReport: (listingAddress, captureMode) => ipcRenderer.invoke('report:run', listingAddress, captureMode),
   onProgress: (callback) => {
     safeOn('report:progress', (_event, data) => callback(data));
   },

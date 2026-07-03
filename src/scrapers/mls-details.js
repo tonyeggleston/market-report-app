@@ -1,8 +1,10 @@
+import { sel } from './selectors.js';
+
 export async function extractListingDetail(page, mlsNumber, onProgress) {
   onProgress('Extracting listing details...', mlsNumber);
 
   const mlsLink = await page.$(
-    `a:has-text("${mlsNumber}"), td:has-text("${mlsNumber}") a, a[href*="${mlsNumber}"]`
+    sel('mls.listingLink', `a:has-text("${mlsNumber}"), td:has-text("${mlsNumber}") a, a[href*="${mlsNumber}"]`)
   );
 
   if (!mlsLink) {
@@ -17,12 +19,11 @@ export async function extractListingDetail(page, mlsNumber, onProgress) {
   const detailPage = newPage || page;
   await detailPage.waitForLoadState('domcontentloaded').catch(() => {});
 
-  const detail = await detailPage.evaluate(() => {
+  const descSel = sel('mls.detail.description', '[class*="remarks"], [class*="Remarks"], [class*="description"], [class*="Description"], [id*="remarks"], td:has(> span:has-text("Remarks")) + td');
+  const detail = await detailPage.evaluate((descriptionSelector) => {
     const text = document.body.innerText;
 
-    const descEl = document.querySelector(
-      '[class*="remarks"], [class*="Remarks"], [class*="description"], [class*="Description"], [id*="remarks"], td:has(> span:has-text("Remarks")) + td'
-    );
+    const descEl = document.querySelector(descriptionSelector);
     const description = descEl?.textContent?.trim() || '';
 
     const ldMatch = text.match(/(?:list\s*date|LD|listing\s*date)[:\s]*(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
@@ -37,7 +38,7 @@ export async function extractListingDetail(page, mlsNumber, onProgress) {
       beds: bedMatch ? parseInt(bedMatch[1]) : null,
       baths: bathMatch ? parseFloat(bathMatch[1]) : null,
     };
-  });
+  }, descSel);
 
   const bigTicketItems = parseBigTicketItems(detail.description);
 
@@ -84,7 +85,7 @@ function parseBigTicketItems(description) {
 
 export async function getOurListingDate(page, mlsNumber) {
   const mlsLink = await page.$(
-    `a:has-text("${mlsNumber}"), td:has-text("${mlsNumber}") a`
+    sel('mls.detail.listingLinkNav', `a:has-text("${mlsNumber}"), td:has-text("${mlsNumber}") a`)
   );
 
   if (!mlsLink) return null;

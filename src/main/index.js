@@ -174,7 +174,7 @@ function registerIpcHandlers() {
 
   // ─── Report runner (with license gating) ───
 
-  ipcMain.handle('report:run', async (_event, listingAddress) => {
+  ipcMain.handle('report:run', async (_event, listingAddress, captureMode) => {
     if (DEMO_MODE) return runDemoReport(listingAddress);
 
     // Check license before running
@@ -190,7 +190,7 @@ function registerIpcHandlers() {
 
       const result = await runReport(listingAddress, (step, detail) => {
         mainWindow.webContents.send('report:progress', { step, detail });
-      });
+      }, { captureMode: !!captureMode });
 
       if (result.needsReview) {
         pendingReportData = result.reportData;

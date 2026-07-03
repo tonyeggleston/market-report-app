@@ -1,8 +1,11 @@
+import { sel } from './selectors.js';
+import { capturePage } from './capture.js';
+
 export async function pullShowings(page, config, listingAddress, lastReportDate, onProgress) {
   onProgress('Pulling showings...', `Searching for "${listingAddress}"`);
 
   const searchInput = await page.$(
-    'input[placeholder*="Search"], input[type="search"], input[name*="search"]'
+    sel('bb.showings.searchInput', 'input[placeholder*="Search"], input[type="search"], input[name*="search"]')
   );
   if (searchInput) {
     await searchInput.fill(listingAddress);
@@ -18,7 +21,7 @@ export async function pullShowings(page, config, listingAddress, lastReportDate,
   }
 
   const showingsTab = await page.$(
-    'a:has-text("Showings"), button:has-text("Showings"), [data-tab="showings"], li:has-text("Showings")'
+    sel('bb.showings.tab', 'a:has-text("Showings"), button:has-text("Showings"), [data-tab="showings"], li:has-text("Showings")')
   );
   if (showingsTab) {
     await showingsTab.click();
@@ -26,14 +29,14 @@ export async function pullShowings(page, config, listingAddress, lastReportDate,
   }
 
   await page.waitForTimeout(1500);
+  await capturePage(page, 'bb-showings-tab');
 
   const teamBrokerage = (config.teamBrokerage || '').toLowerCase();
   const teamMembers = (config.teamMembers || []).map((n) => n.toLowerCase().trim());
 
-  const rawShowings = await page.evaluate(() => {
-    const rows = document.querySelectorAll(
-      'table tbody tr, [class*="showing-row"], [class*="ShowingRow"], [class*="showing-item"], [class*="showingItem"]'
-    );
+  const rowSel = sel('bb.showings.rows', 'table tbody tr, [class*="showing-row"], [class*="ShowingRow"], [class*="showing-item"], [class*="showingItem"]');
+  const rawShowings = await page.evaluate((rowSelector) => {
+    const rows = document.querySelectorAll(rowSelector);
     const results = [];
 
     for (const row of rows) {
@@ -64,7 +67,7 @@ export async function pullShowings(page, config, listingAddress, lastReportDate,
       });
     }
     return results;
-  });
+  }, rowSel);
 
   const cutoffDate = lastReportDate ? new Date(lastReportDate) : (() => {
     const d = new Date();

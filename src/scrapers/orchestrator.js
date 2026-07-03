@@ -9,6 +9,8 @@ import { downloadListingPhotos } from './mls-photos.js';
 import { extractListingDetail, getOurListingDate } from './mls-details.js';
 import { runPriceOnlySearch } from './mls-price-search.js';
 import { ensureBrowser } from './browser-path.js';
+import { loadSelectors } from './selectors.js';
+import { initCapture, capturePage } from './capture.js';
 import { launchBrokerBayBrowser, loginToBrokerBay } from './bb-login.js';
 import { pullShowings } from './bb-showings.js';
 import { pullMarketTrends } from './bb-trends.js';
@@ -19,13 +21,15 @@ import { computeDiff } from '../report/diff.js';
 import { calculateMarketMetrics, accumulateTotalShowings } from '../report/calculate.js';
 import { buildEmail } from '../report/email-builder.js';
 
-export async function runReport(listingAddress, onProgress) {
+export async function runReport(listingAddress, onProgress, options = {}) {
   const config = getConfig();
   if (!config) throw new Error('App not configured. Run setup first.');
 
   // Ensure Chromium is available (auto-installs on first run if needed)
   onProgress('Preparing browser...', 'Checking for Chromium');
   await ensureBrowser();
+  // Load any remote selector overrides (falls back to bundled defaults if offline).
+  await loadSelectors(onProgress);
   onProgress('Preparing browser...', 'Ready');
 
   // Sanitize listing address for use as directory name — strip path traversal characters
@@ -38,6 +42,10 @@ export async function runReport(listingAddress, onProgress) {
   }
   fs.mkdirSync(outputDir, { recursive: true });
 
+  // Capture mode: when enabled, every page in the flow is saved (HTML + screenshot)
+  // to <outputDir>/capture so selectors can be fixed against real markup.
+  initCapture(options.captureMode, outputDir);
+
   // ═══════════════════════════════════════════
   // PHASE 1–4: MLS
   // ═══════════════════════════════════════════
@@ -47,8 +55,11 @@ export async function runReport(listingAddress, onProgress) {
     // loginToMls logs in, lands on the NTREIS Dashboard, launches the Matrix
     // app (new tab), and returns the Matrix page we should work with.
     const mlsPage = await loginToMls(initialPage, config, onProgress);
+    await capturePage(mlsPage, 'matrix-home');
     await runSavedSearch(mlsPage, listingAddress, onProgress);
+    await capturePage(mlsPage, 'matrix-search-results');
     await switchToAgentSingleLine(mlsPage);
+    await capturePage(mlsPage, 'matrix-agent-single-line');
 
     // Diagnostic: save the rendered results page so selectors can be verified
     // against the real Matrix markup. Saved to the run's output folder.
