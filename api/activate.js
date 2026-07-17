@@ -1,7 +1,10 @@
 import { resolveAccount, planFromSubscription, formatPeriodEnd, setCustomerMetadata } from './_stripe.js';
+import { rateLimited } from './_ratelimit.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  // Tight per-IP limit — activation is rare and key brute-forcing lands here.
+  if (rateLimited(req, res, { tag: 'activate', ipLimit: 20, keyLimit: 10 })) return;
 
   const { licenseKey } = req.body || {};
   if (!licenseKey) return res.status(400).json({ error: 'Missing licenseKey' });

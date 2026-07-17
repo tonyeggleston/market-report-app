@@ -1,8 +1,16 @@
-import { resolveAccount, planFromSubscription, formatPeriodEnd, ensureCurrentPeriod } from './_stripe.js';
+import { resolveAccount, planFromSubscription, formatPeriodEnd, ensureCurrentPeriod, setCustomerMetadata } from './_stripe.js';
 import { signLicenseToken } from './_license-token.js';
+import { rateLimited } from './_ratelimit.js';
+
+// How long a customer keeps working after Stripe marks the subscription
+// past_due. Stripe retries a failed renewal charge for days (smart retries),
+// so an instant block would lock out a paying customer over a single card blip.
+// This grace keeps them working while dunning runs its course.
+const PAST_DUE_GRACE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (rateLimited(req, res, { tag: 'validate', ipLimit: 60, keyLimit: 30 })) return;
 
   const { licenseKey } = req.body || {};
   if (!licenseKey) return res.status(400).json({ error: 'Missing licenseKey' });
@@ -19,11 +27,24 @@ export default async function handler(req, res) {
     }
 
     if (status === 'past_due') {
-      return res.json({
-        active: false,
-        reason: 'past-due',
-        message: 'Your subscription payment is past due. Please update your payment method.',
-      });
+      // Grace window: allow up to PAST_DUE_GRACE_MS from when we first saw the
+      // account go past_due, so a transient failed charge doesn't hard-block a
+      // customer mid-dunning. Cleared back to active below when the sub recovers.
+      const since = customer.metadata?.past_due_since ? parseInt(customer.metadata.past_due_since, 10) : null;
+      const now = Date.now();
+      if (!since) {
+        await setCustomerMetadata(customer.id, 'past_due_since', String(now)).catch(() => {});
+      } else if (now - since > PAST_DUE_GRACE_MS) {
+        return res.json({
+          active: false,
+          reason: 'past-due',
+          message: 'Your subscription payment is past due. Please update your payment method to continue.',
+        });
+      }
+      // else: still inside grace — fall through and serve as active-with-warning.
+    } else if (customer.metadata?.past_due_since) {
+      // Recovered — clear the marker so a future dunning starts a fresh window.
+      await setCustomerMetadata(customer.id, 'past_due_since', '').catch(() => {});
     }
 
     // Self-healing period reset (independent of the webhook) before we read the counter.
@@ -51,6 +72,7 @@ export default async function handler(req, res) {
       billingPeriodEnd: formatPeriodEnd(sub),
       customerId: customer.id,
       token,
+      ...(status === 'past_due' ? { pastDue: true, message: 'Your last payment failed — please update your payment method. Reports keep working for a few days while we retry.' } : {}),
     });
   } catch (err) {
     console.error('Validate error:', err);

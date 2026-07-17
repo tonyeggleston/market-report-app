@@ -30,6 +30,36 @@ function loadPrivateKey() {
   }
 }
 
+// Derive the public key from the configured private key (same key material) so
+// the server can verify its own tokens on the AI-proxy path without a Stripe
+// round-trip. Cached across warm invocations.
+let cachedPublicKey;
+function loadPublicKey() {
+  if (cachedPublicKey !== undefined) return cachedPublicKey;
+  const priv = loadPrivateKey();
+  cachedPublicKey = priv ? crypto.createPublicKey(priv) : null;
+  return cachedPublicKey;
+}
+
+// Verify a signed token server-side. Returns the decoded payload if the
+// signature is valid and it hasn't expired, else null. Used to authenticate
+// the AI proxy: only a client holding a token this server recently issued to an
+// active subscription can call it.
+export function verifyLicenseToken(token, nowMs) {
+  if (!token || !token.payload || !token.sig) return null;
+  const pub = loadPublicKey();
+  if (!pub) return null;
+  try {
+    const ok = crypto.verify(null, Buffer.from(token.payload), pub, Buffer.from(token.sig, 'base64url'));
+    if (!ok) return null;
+    const payload = JSON.parse(Buffer.from(token.payload, 'base64url').toString('utf8'));
+    if (typeof payload.validUntil !== 'number' || nowMs > payload.validUntil) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 // Build a signed token for a validated, active account. Returns null when no
 // signing key is configured (caller just omits the token).
 export function signLicenseToken(fields, nowMs) {

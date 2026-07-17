@@ -1,4 +1,5 @@
 import { resolveAccount, planFromSubscription, setCustomerMetadata, createOverageInvoiceItem, ensureCurrentPeriod } from './_stripe.js';
+import { rateLimited } from './_ratelimit.js';
 
 // Usage-recording endpoint with deferred overage billing.
 //
@@ -22,6 +23,9 @@ function isOverageExempt(licenseKey, customer) {
 }
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  // Tight per-key limit: a legit client posts ~one per finished report, so a
+  // flood is someone trying to inflate a customer's usage/overage bill.
+  if (rateLimited(req, res, { tag: 'report-complete', ipLimit: 60, keyLimit: 20 })) return;
 
   const { licenseKey, listingAddress, completedAt, reportId } = req.body || {};
   if (!licenseKey) return res.status(400).json({ error: 'Missing licenseKey' });
