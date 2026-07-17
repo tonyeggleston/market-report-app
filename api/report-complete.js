@@ -1,12 +1,25 @@
-import { resolveAccount, planFromSubscription, setCustomerMetadata } from './_stripe.js';
+import { resolveAccount, planFromSubscription, setCustomerMetadata, createOverageInvoiceItem, ensureCurrentPeriod } from './_stripe.js';
 
-// Record-only usage endpoint.
+// Usage-recording endpoint with deferred overage billing.
 //
 // SECURITY: this endpoint is public and authenticated only by a license key.
-// It therefore NEVER moves money. It records usage and flags overages for
-// server-side reconciliation — a client (or anyone holding a key) must not be
-// able to trigger a card charge. Overage billing is handled out-of-band by the
-// operator, not auto-charged here. See billing audit (2026-06-22).
+// It therefore NEVER moves money at request time. Usage is recorded, and each
+// over-quota report creates a PENDING Stripe invoice item that is collected on
+// the customer's next monthly invoice — itemized per report. A leaked key can
+// add visible, refundable line items but can never trigger an immediate card
+// charge. See billing audit (2026-06-22) + per-run billing decision (2026-07-16).
+//
+// Exemptions (e.g. the Davis Team's own-billing arrangement): a license key
+// listed in the OVERAGE_EXEMPT_KEYS env var (comma-separated), or a customer
+// with metadata overage_billing='manual', gets usage tracking + the
+// overage_pending counter only — no invoice items.
+
+function isOverageExempt(licenseKey, customer) {
+  const envList = (process.env.OVERAGE_EXEMPT_KEYS || '')
+    .split(',').map((k) => k.trim()).filter(Boolean);
+  if (envList.includes(licenseKey)) return true;
+  return customer.metadata?.overage_billing === 'manual';
+}
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -14,12 +27,17 @@ export default async function handler(req, res) {
   if (!licenseKey) return res.status(400).json({ error: 'Missing licenseKey' });
 
   try {
-    const { customer, sub } = await resolveAccount(licenseKey);
+    let { customer, sub } = await resolveAccount(licenseKey);
     if (!customer) return res.status(404).json({ error: 'Invalid license key' });
 
+    // Self-healing period reset before counting (independent of the webhook).
+    if (sub) customer = await ensureCurrentPeriod(customer, sub);
+
     // Idempotency: a client retry/double-submit with the same reportId must not
-    // double-count. Dedupes the common consecutive-retry case without extra infra.
-    if (reportId && customer.metadata?.last_report_id === reportId) {
+    // double-count. Compare as strings — metadata is always a string but the
+    // client may send reportId as a number (SQLite rowid), and 5 === '5' is
+    // false, which would defeat the dedupe entirely.
+    if (reportId != null && String(customer.metadata?.last_report_id) === String(reportId)) {
       const used = parseInt(customer.metadata?.reports_used_current_period || '0', 10);
       return res.json({ ok: true, reportsUsed: used, overage: false, deduped: true, message: 'Already recorded.' });
     }
@@ -31,15 +49,40 @@ export default async function handler(req, res) {
     await setCustomerMetadata(customer.id, 'last_report_at', completedAt || new Date().toISOString()).catch(() => {});
     if (reportId) await setCustomerMetadata(customer.id, 'last_report_id', reportId).catch(() => {});
 
-    // Over quota: RECORD the overage for the operator to reconcile/bill. Do NOT
-    // create or finalize any invoice here — money never moves on a client call.
+    // Over quota: record the overage, and (unless exempt) create a pending
+    // invoice item so Stripe collects it on the next monthly invoice. Never
+    // finalize an invoice or charge here — money never moves on a client call.
     let overage = false;
+    let billed = false;
     if (sub) {
-      const { reportsIncluded } = await planFromSubscription(sub);
+      const { reportsIncluded, overageRate } = await planFromSubscription(sub);
       if (newCount > reportsIncluded) {
         overage = true;
         const pending = parseInt(customer.metadata?.overage_pending || '0', 10) + 1;
         await setCustomerMetadata(customer.id, 'overage_pending', String(pending)).catch(() => {});
+
+        if (!isOverageExempt(licenseKey, customer)) {
+          const amountCents = Math.round(overageRate * 100);
+          const when = (completedAt || new Date().toISOString()).slice(0, 10);
+          const description = `MarketPulse overage report — ${listingAddress || 'listing'} — ${when}`;
+          // Billing failure must not un-record the report; the overage_pending
+          // counter remains the reconciliation trail for any missed item.
+          try {
+            // Idempotency key must be globally unique across ALL installs.
+            // reportId is a per-machine SQLite rowid, so two customers' "report
+            // 5" collide unless namespaced by the Stripe customer id — the
+            // second collision would silently skip billing.
+            await createOverageInvoiceItem(
+              customer.id,
+              amountCents,
+              description,
+              reportId != null ? `mp-overage-${customer.id}-${reportId}` : undefined
+            );
+            billed = true;
+          } catch (err) {
+            console.error('Overage invoice item failed (left in overage_pending for reconciliation):', err.message);
+          }
+        }
       }
     }
 
@@ -47,8 +90,11 @@ export default async function handler(req, res) {
       ok: true,
       reportsUsed: newCount,
       overage,
+      billed,
       message: overage
-        ? `Report ${newCount} recorded (over plan — overage pending reconciliation).`
+        ? (billed
+          ? `Report ${newCount} recorded — overage added to your next invoice.`
+          : `Report ${newCount} recorded (over plan — overage pending reconciliation).`)
         : `Report ${newCount} recorded.`,
     });
   } catch (err) {

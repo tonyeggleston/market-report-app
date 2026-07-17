@@ -18,22 +18,38 @@ export async function stripeGet(pathWithQuery) {
   return data;
 }
 
-export async function stripePost(path, params) {
+export async function stripePost(path, params, idempotencyKey) {
   const body = new URLSearchParams();
   for (const [k, v] of Object.entries(params || {})) {
     if (v !== undefined && v !== null) body.append(k, String(v));
   }
+  const headers = {
+    Authorization: authHeader(),
+    'Content-Type': 'application/x-www-form-urlencoded',
+  };
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
   const res = await fetch(`${STRIPE_BASE}${path}`, {
     method: 'POST',
-    headers: {
-      Authorization: authHeader(),
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
+    headers,
     body,
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message || `Stripe POST ${path} failed (${res.status})`);
   return data;
+}
+
+// Create a pending invoice item for one overage report. It attaches to the
+// customer's NEXT subscription invoice and is collected with the monthly
+// renewal — money never moves at request time, so a leaked license key can
+// only add visible, refundable line items, never trigger an immediate charge.
+// Idempotency-Key (derived from the reportId) makes client retries safe.
+export async function createOverageInvoiceItem(customerId, amountCents, description, idempotencyKey) {
+  return stripePost('/invoiceitems', {
+    customer: customerId,
+    amount: amountCents,
+    currency: 'usd',
+    description,
+  }, idempotencyKey);
 }
 
 // Find ALL customers with this license_key (handles accidental duplicates).
@@ -98,9 +114,44 @@ export async function planFromSubscription(sub) {
   const meta = (product && typeof product === 'object' ? product.metadata : null) || {};
   return {
     planName: meta.plan_name || 'Standard',
-    reportsIncluded: parseInt(meta.reports_included || '15', 10),
-    overageRate: parseFloat(meta.overage_rate || '15.00'),
+    reportsIncluded: parseMoneyish(meta.reports_included, 15, parseInt),
+    overageRate: parseMoneyish(meta.overage_rate, 15.0, parseFloat),
   };
+}
+
+// Parse a metadata number tolerantly: strips currency symbols/commas/whitespace
+// so a product configured with "$15.00" or "15,00" doesn't silently become NaN
+// (which JSON-serializes to null and shows the customer $0.00). Falls back to a
+// safe default when the value is missing or genuinely unparseable.
+export function parseMoneyish(raw, fallback, parser) {
+  if (raw === undefined || raw === null || raw === '') return fallback;
+  const cleaned = String(raw).replace(/[^0-9.]/g, '');
+  const n = parser(cleaned, 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+// Period start under both classic and flexible billing.
+export function periodStartOf(sub) {
+  return sub?.current_period_start || sub?.items?.data?.[0]?.current_period_start || null;
+}
+
+// Reset the usage + overage counters when the subscription has advanced to a
+// new billing period since we last recorded one. This makes the period reset
+// self-healing and independent of a single webhook delivery: if invoice.paid is
+// ever dropped or delayed, the next validate/report-complete still resets. The
+// webhook remains a fast path. Idempotent — a no-op once period_start matches.
+export async function ensureCurrentPeriod(customer, sub) {
+  const start = periodStartOf(sub);
+  if (!start) return customer;
+  const recorded = customer.metadata?.period_start ? parseInt(customer.metadata.period_start, 10) : null;
+  if (recorded === start) return customer;
+
+  await setCustomerMetadata(customer.id, 'reports_used_current_period', '0').catch(() => {});
+  await setCustomerMetadata(customer.id, 'overage_pending', '0').catch(() => {});
+  await setCustomerMetadata(customer.id, 'period_start', String(start)).catch(() => {});
+  // Reflect the reset in the in-memory object so the caller counts from zero.
+  customer.metadata = { ...customer.metadata, reports_used_current_period: '0', overage_pending: '0', period_start: String(start) };
+  return customer;
 }
 
 export function formatPeriodEnd(sub) {

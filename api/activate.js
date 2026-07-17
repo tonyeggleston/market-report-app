@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   if (!licenseKey) return res.status(400).json({ error: 'Missing licenseKey' });
 
   try {
-    const { customer, sub } = await resolveAccount(licenseKey);
+    const { customer, sub, status } = await resolveAccount(licenseKey);
 
     if (!customer) {
       return res.json({ active: false, reason: 'invalid-key', message: 'Invalid license key. Check the key and try again.' });
@@ -18,6 +18,15 @@ export default async function handler(req, res) {
         active: false,
         reason: 'no-subscription',
         message: 'This license key is valid but has no active subscription. Please subscribe at our website.',
+      });
+    }
+
+    // Match validate.js: a delinquent account must not be greenlit at activation.
+    if (status === 'past_due') {
+      return res.json({
+        active: false,
+        reason: 'past-due',
+        message: 'Your subscription payment is past due. Please update your payment method to activate.',
       });
     }
 

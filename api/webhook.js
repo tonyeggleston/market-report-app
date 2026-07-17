@@ -64,8 +64,12 @@ export default async function handler(req, res) {
   try {
     if (event.type === 'invoice.paid') {
       const invoice = event.data.object;
-      // Reset usage (and clear any pending overage) at the start of each cycle.
-      // Idempotent: setting to '0' twice is harmless.
+      // Fast-path counter reset at each cycle. This is now a redundant
+      // optimization: ensureCurrentPeriod() also resets server-side on the next
+      // validate/report-complete by comparing the subscription's period_start,
+      // so a dropped or delayed webhook no longer strands the counter. The
+      // overage for the closing period is already collected as invoice items on
+      // THIS invoice, so clearing overage_pending here is safe. Idempotent.
       if (invoice.billing_reason === 'subscription_cycle' && invoice.customer) {
         await setCustomerMetadata(invoice.customer, 'reports_used_current_period', '0');
         await setCustomerMetadata(invoice.customer, 'overage_pending', '0').catch(() => {});

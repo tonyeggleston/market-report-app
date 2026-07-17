@@ -1,4 +1,5 @@
-import { resolveAccount, planFromSubscription, formatPeriodEnd } from './_stripe.js';
+import { resolveAccount, planFromSubscription, formatPeriodEnd, ensureCurrentPeriod } from './_stripe.js';
+import { signLicenseToken } from './_license-token.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -7,7 +8,7 @@ export default async function handler(req, res) {
   if (!licenseKey) return res.status(400).json({ error: 'Missing licenseKey' });
 
   try {
-    const { customer, sub, status } = await resolveAccount(licenseKey);
+    let { customer, sub, status } = await resolveAccount(licenseKey);
 
     if (!customer) {
       return res.json({ active: false, reason: 'invalid-key', message: 'Invalid license key.' });
@@ -25,17 +26,31 @@ export default async function handler(req, res) {
       });
     }
 
+    // Self-healing period reset (independent of the webhook) before we read the counter.
+    customer = await ensureCurrentPeriod(customer, sub);
+
     const { planName, reportsIncluded, overageRate } = await planFromSubscription(sub);
     const reportsUsed = parseInt(customer.metadata?.reports_used_current_period || '0', 10);
+    const overagesThisPeriod = parseInt(customer.metadata?.overage_pending || '0', 10);
+
+    // Signed token for offline grace — proof the server confirmed a paid,
+    // active subscription. Null when no signing key is configured (online path
+    // is unaffected). The client verifies the signature before trusting it.
+    const token = signLicenseToken(
+      { customerId: customer.id, licenseKey, plan: planName, reportsIncluded, overageRate },
+      Date.now()
+    );
 
     return res.json({
       active: true,
       plan: planName,
       reportsIncluded,
       reportsUsed,
+      overagesThisPeriod,
       overageRate,
       billingPeriodEnd: formatPeriodEnd(sub),
       customerId: customer.id,
+      token,
     });
   } catch (err) {
     console.error('Validate error:', err);
