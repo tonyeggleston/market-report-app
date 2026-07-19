@@ -5,3 +5,8 @@ build-resources/
 .env
 *.pem
 user-data/
+
+# Starter API key shipped with customer builds — never committed
+src/main/default-openrouter-key.txt
+.license-signing-key.pem
+*.local.md

@@ -16,7 +16,7 @@
 // never hit this endpoint — the client calls OpenRouter directly for them.
 
 import { verifyLicenseToken } from './_license-token.js';
-import { rateLimited } from './_ratelimit.js';
+import { rateLimited, allow } from './_ratelimit.js';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -29,11 +29,34 @@ const MODEL_ALLOWLIST = new Set([
 const DEFAULT_MODEL = 'google/gemini-2.5-flash';
 const MAX_TOKENS_CAP = { vision: 4096, text: 1024 };
 
+// Bound what a valid token can spend on INPUT (output is capped via
+// max_tokens). Sized to the real clients: describe.js sends few-KB text
+// prompts; fingerprint.js sends one text part + up to 25 data-URI image parts.
+// Data-URI images are bounded by Vercel's ~4.5MB body cap and tokenize cheaply.
+const MAX_TEXT_CHARS = 64_000;
+const MAX_PARTS = 30;
+
+function validContent(mode, content) {
+  if (typeof content === 'string') return content.length > 0 && content.length <= MAX_TEXT_CHARS;
+  if (mode !== 'vision' || !Array.isArray(content) || content.length === 0 || content.length > MAX_PARTS) return false;
+  let textChars = 0;
+  for (const part of content) {
+    if (part?.type === 'text' && typeof part.text === 'string') {
+      textChars += part.text.length;
+    } else if (!(part?.type === 'image_url' && typeof part.image_url?.url === 'string' && part.image_url.url.startsWith('data:image/'))) {
+      return false;
+    }
+  }
+  return textChars <= MAX_TEXT_CHARS;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  // AI calls are frequent during a run (~one per comp), so the per-key ceiling
-  // is generous; the IP ceiling blunts a scripted drain attempt.
-  if (rateLimited(req, res, { tag: 'ai', ipLimit: 240, keyLimit: 240, windowMs: 60_000 })) return;
+  // Per-IP here is the cheap pre-verification hammer guard; the per-key
+  // ceiling is enforced below on the token's VERIFIED licenseKey (the AI body
+  // carries `token`, not `licenseKey`, so rateLimited's per-key branch never
+  // engages on this route).
+  if (rateLimited(req, res, { tag: 'ai', ipLimit: 240, windowMs: 60_000 })) return;
 
   const { token, mode, content, model, max_tokens } = req.body || {};
 
@@ -41,10 +64,15 @@ export default async function handler(req, res) {
   if (!payload) {
     return res.status(401).json({ error: 'AI access requires a valid, active license.' });
   }
+  // AI calls are frequent during a run (~one per comp), so the ceiling is
+  // generous — it exists to stop a scripted drain on a stolen token.
+  if (!allow(`ai:key:${payload.licenseKey}`, { limit: 240, windowMs: 60_000 })) {
+    return res.status(429).json({ error: 'Too many requests for this license. Slow down and try again shortly.' });
+  }
   if (mode !== 'vision' && mode !== 'text') {
     return res.status(400).json({ error: 'mode must be "vision" or "text"' });
   }
-  if (content == null) return res.status(400).json({ error: 'Missing content' });
+  if (!validContent(mode, content)) return res.status(400).json({ error: 'Invalid content' });
 
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -54,7 +82,7 @@ export default async function handler(req, res) {
 
   const chosenModel = MODEL_ALLOWLIST.has(model) ? model : DEFAULT_MODEL;
   const cap = MAX_TOKENS_CAP[mode];
-  const maxTokens = Math.min(Number(max_tokens) || cap, cap);
+  const maxTokens = Math.max(1, Math.min(Number(max_tokens) || cap, cap));
 
   const body = JSON.stringify({
     model: chosenModel,

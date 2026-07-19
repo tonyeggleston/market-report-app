@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { resolveAccount, planFromSubscription, setCustomerMetadata, createOverageInvoiceItem, ensureCurrentPeriod } from './_stripe.js';
 import { rateLimited } from './_ratelimit.js';
 
@@ -28,7 +29,7 @@ export default async function handler(req, res) {
   if (rateLimited(req, res, { tag: 'report-complete', ipLimit: 60, keyLimit: 20 })) return;
 
   const { licenseKey, listingAddress, completedAt, reportId } = req.body || {};
-  if (!licenseKey) return res.status(400).json({ error: 'Missing licenseKey' });
+  if (!licenseKey || typeof licenseKey !== 'string') return res.status(400).json({ error: 'Missing licenseKey' });
 
   try {
     let { customer, sub } = await resolveAccount(licenseKey);
@@ -37,11 +38,17 @@ export default async function handler(req, res) {
     // Self-healing period reset before counting (independent of the webhook).
     if (sub) customer = await ensureCurrentPeriod(customer, sub);
 
-    // Idempotency: a client retry/double-submit with the same reportId must not
-    // double-count. Compare as strings — metadata is always a string but the
-    // client may send reportId as a number (SQLite rowid), and 5 === '5' is
-    // false, which would defeat the dedupe entirely.
-    if (reportId != null && String(customer.metadata?.last_report_id) === String(reportId)) {
+    // Idempotency: the client's durable queue replays events verbatim, so any
+    // retry carries the same frozen reportId+completedAt. Hashing BOTH into the
+    // dedupe token keeps retries stable while two machines sharing one license
+    // key (colliding per-machine SQLite rowids) never collide. A bounded recent
+    // set — not a single slot — so replaying a multi-event queue can't
+    // re-count earlier events.
+    const dedupeToken = reportId != null
+      ? createHash('sha256').update(`${reportId}|${completedAt || ''}`).digest('hex').slice(0, 10)
+      : null;
+    const recorded = (customer.metadata?.recorded_report_ids || '').split(',').filter(Boolean);
+    if (dedupeToken && recorded.includes(dedupeToken)) {
       const used = parseInt(customer.metadata?.reports_used_current_period || '0', 10);
       return res.json({ ok: true, reportsUsed: used, overage: false, deduped: true, message: 'Already recorded.' });
     }
@@ -49,9 +56,18 @@ export default async function handler(req, res) {
     const currentUsed = parseInt(customer.metadata?.reports_used_current_period || '0', 10);
     const newCount = currentUsed + 1;
 
-    await setCustomerMetadata(customer.id, 'reports_used_current_period', String(newCount));
-    await setCustomerMetadata(customer.id, 'last_report_at', completedAt || new Date().toISOString()).catch(() => {});
-    if (reportId) await setCustomerMetadata(customer.id, 'last_report_id', reportId).catch(() => {});
+    // Counter + dedupe set + timestamp in ONE atomic write: a crash between a
+    // counter commit and a marker commit is exactly the double-count window.
+    // Deliberately uncaught — a swallowed failure would return 200 and lose the
+    // count forever, since the client only retries on error. Trim the set
+    // oldest-first to stay under Stripe's 500-char metadata value limit.
+    if (dedupeToken) recorded.push(dedupeToken);
+    while (recorded.join(',').length > 480) recorded.shift();
+    await setCustomerMetadata(customer.id, {
+      reports_used_current_period: String(newCount),
+      recorded_report_ids: recorded.join(','),
+      last_report_at: completedAt || new Date().toISOString(),
+    });
 
     // Over quota: record the overage, and (unless exempt) create a pending
     // invoice item so Stripe collects it on the next monthly invoice. Never
@@ -63,7 +79,7 @@ export default async function handler(req, res) {
       if (newCount > reportsIncluded) {
         overage = true;
         const pending = parseInt(customer.metadata?.overage_pending || '0', 10) + 1;
-        await setCustomerMetadata(customer.id, 'overage_pending', String(pending)).catch(() => {});
+        await setCustomerMetadata(customer.id, { overage_pending: String(pending) }).catch(() => {});
 
         if (!isOverageExempt(licenseKey, customer)) {
           const amountCents = Math.round(overageRate * 100);
@@ -72,15 +88,16 @@ export default async function handler(req, res) {
           // Billing failure must not un-record the report; the overage_pending
           // counter remains the reconciliation trail for any missed item.
           try {
-            // Idempotency key must be globally unique across ALL installs.
-            // reportId is a per-machine SQLite rowid, so two customers' "report
-            // 5" collide unless namespaced by the Stripe customer id — the
-            // second collision would silently skip billing.
+            // Idempotency key uses the same reportId+completedAt token as the
+            // dedupe set: globally unique across installs and machines (raw
+            // reportId is a per-machine SQLite rowid — collisions would
+            // silently skip billing a legitimate report), while retries of the
+            // same event still dedupe at Stripe.
             await createOverageInvoiceItem(
               customer.id,
               amountCents,
               description,
-              reportId != null ? `mp-overage-${customer.id}-${reportId}` : undefined
+              dedupeToken ? `mp-overage-${customer.id}-${dedupeToken}` : undefined
             );
             billed = true;
           } catch (err) {

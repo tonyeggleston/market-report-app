@@ -17,15 +17,17 @@ async function readRawBody(readable) {
 const MAX_SIGNATURE_AGE_SECONDS = 300; // 5 minutes, matching Stripe's default tolerance
 
 // Verify Stripe's signature header without the stripe library.
-// Header format: t=<timestamp>,v1=<signature>
+// Header format: t=<timestamp>,v1=<sig>[,v1=<sig>...] (multiple v1 entries
+// during webhook-secret rotation — any one matching signature is valid).
 function verifySignature(rawBody, sigHeader, secret) {
   if (!sigHeader || !secret) return false;
-  const parts = Object.fromEntries(
-    sigHeader.split(',').map((p) => p.split('=').map((s) => s.trim()))
-  );
-  const timestamp = parts.t;
-  const expected = parts.v1;
-  if (!timestamp || !expected) return false;
+  const pairs = sigHeader.split(',').map((p) => {
+    const i = p.indexOf('=');
+    return [p.slice(0, i).trim(), p.slice(i + 1).trim()];
+  });
+  const timestamp = pairs.find(([k]) => k === 't')?.[1];
+  const candidates = pairs.filter(([k]) => k === 'v1').map(([, v]) => v);
+  if (!timestamp || candidates.length === 0) return false;
 
   // Reject stale signatures so a captured event can't be replayed later.
   const age = Math.floor(Date.now() / 1000) - parseInt(timestamp, 10);
@@ -36,11 +38,12 @@ function verifySignature(rawBody, sigHeader, secret) {
   const signedPayload = `${timestamp}.${rawBody.toString('utf8')}`;
   const computed = crypto.createHmac('sha256', secret).update(signedPayload).digest('hex');
 
-  // Constant-time compare.
+  // Constant-time compare against every candidate signature.
   const a = Buffer.from(computed);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
+  return candidates.some((expected) => {
+    const b = Buffer.from(expected);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  });
 }
 
 export default async function handler(req, res) {
@@ -71,9 +74,13 @@ export default async function handler(req, res) {
       // overage for the closing period is already collected as invoice items on
       // THIS invoice, so clearing overage_pending here is safe. Idempotent.
       if (invoice.billing_reason === 'subscription_cycle' && invoice.customer) {
-        await setCustomerMetadata(invoice.customer, 'reports_used_current_period', '0');
-        await setCustomerMetadata(invoice.customer, 'overage_pending', '0').catch(() => {});
-        await setCustomerMetadata(invoice.customer, 'period_reset_at', new Date().toISOString()).catch(() => {});
+        // One atomic write, deliberately uncaught — a failure 500s so Stripe
+        // retries the whole event rather than leaving a partial reset.
+        await setCustomerMetadata(invoice.customer, {
+          reports_used_current_period: '0',
+          overage_pending: '0',
+          period_reset_at: new Date().toISOString(),
+        });
       }
     }
     // Other event types are acknowledged without action for now.

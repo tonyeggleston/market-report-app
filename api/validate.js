@@ -1,19 +1,13 @@
-import { resolveAccount, planFromSubscription, formatPeriodEnd, ensureCurrentPeriod, setCustomerMetadata } from './_stripe.js';
+import { resolveAccount, planFromSubscription, formatPeriodEnd, ensureCurrentPeriod, setCustomerMetadata, PAST_DUE_GRACE_MS } from './_stripe.js';
 import { signLicenseToken } from './_license-token.js';
 import { rateLimited } from './_ratelimit.js';
-
-// How long a customer keeps working after Stripe marks the subscription
-// past_due. Stripe retries a failed renewal charge for days (smart retries),
-// so an instant block would lock out a paying customer over a single card blip.
-// This grace keeps them working while dunning runs its course.
-const PAST_DUE_GRACE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (rateLimited(req, res, { tag: 'validate', ipLimit: 60, keyLimit: 30 })) return;
 
   const { licenseKey } = req.body || {};
-  if (!licenseKey) return res.status(400).json({ error: 'Missing licenseKey' });
+  if (!licenseKey || typeof licenseKey !== 'string') return res.status(400).json({ error: 'Missing licenseKey' });
 
   try {
     let { customer, sub, status } = await resolveAccount(licenseKey);
@@ -33,7 +27,7 @@ export default async function handler(req, res) {
       const since = customer.metadata?.past_due_since ? parseInt(customer.metadata.past_due_since, 10) : null;
       const now = Date.now();
       if (!since) {
-        await setCustomerMetadata(customer.id, 'past_due_since', String(now)).catch(() => {});
+        await setCustomerMetadata(customer.id, { past_due_since: String(now) }).catch(() => {});
       } else if (now - since > PAST_DUE_GRACE_MS) {
         return res.json({
           active: false,
@@ -44,7 +38,7 @@ export default async function handler(req, res) {
       // else: still inside grace — fall through and serve as active-with-warning.
     } else if (customer.metadata?.past_due_since) {
       // Recovered — clear the marker so a future dunning starts a fresh window.
-      await setCustomerMetadata(customer.id, 'past_due_since', '').catch(() => {});
+      await setCustomerMetadata(customer.id, { past_due_since: '' }).catch(() => {});
     }
 
     // Self-healing period reset (independent of the webhook) before we read the counter.

@@ -3,6 +3,12 @@
 
 const STRIPE_BASE = 'https://api.stripe.com/v1';
 
+// How long a customer keeps working after Stripe marks the subscription
+// past_due. Stripe retries a failed renewal charge for days (smart retries),
+// so an instant block would lock out a paying customer over a single card
+// blip. Shared by validate.js and activate.js so the two doors agree.
+export const PAST_DUE_GRACE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
 function authHeader() {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error('STRIPE_SECRET_KEY not configured');
@@ -67,19 +73,12 @@ export async function resolveAccount(licenseKey) {
   const customers = await findCustomersByLicense(licenseKey);
   if (!customers.length) return { customer: null, sub: null, status: 'none' };
 
-  let firstCustomer = customers[0];
   for (const customer of customers) {
     const { sub, status } = await getSubscription(customer.id);
     if (sub) return { customer, sub, status };
   }
   // No subscription on any matching customer.
-  return { customer: firstCustomer, sub: null, status: 'none' };
-}
-
-// Back-compat: single-customer lookup (first match).
-export async function findCustomerByLicense(licenseKey) {
-  const customers = await findCustomersByLicense(licenseKey);
-  return customers[0] || null;
+  return { customer: customers[0], sub: null, status: 'none' };
 }
 
 // Get the active (or past_due) subscription for a customer.
@@ -119,13 +118,16 @@ export async function planFromSubscription(sub) {
   };
 }
 
-// Parse a metadata number tolerantly: strips currency symbols/commas/whitespace
-// so a product configured with "$15.00" or "15,00" doesn't silently become NaN
-// (which JSON-serializes to null and shows the customer $0.00). Falls back to a
-// safe default when the value is missing or genuinely unparseable.
+// Parse a metadata number tolerantly: a trailing comma followed by 1-2 digits
+// is a decimal separator ("15,00" → 15), other commas/currency symbols/
+// whitespace are stripped as thousands separators or noise ("$1,000" → 1000),
+// and ambiguous multi-dot results ("1.000,50") fall back to the safe default —
+// never a silent 100x misparse on a billing rate.
 export function parseMoneyish(raw, fallback, parser) {
   if (raw === undefined || raw === null || raw === '') return fallback;
-  const cleaned = String(raw).replace(/[^0-9.]/g, '');
+  const normalized = String(raw).replace(/,(\d{1,2})$/, '.$1');
+  const cleaned = normalized.replace(/[^0-9.]/g, '');
+  if ((cleaned.match(/\./g) || []).length > 1) return fallback;
   const n = parser(cleaned, 10);
   return Number.isFinite(n) ? n : fallback;
 }
@@ -146,9 +148,14 @@ export async function ensureCurrentPeriod(customer, sub) {
   const recorded = customer.metadata?.period_start ? parseInt(customer.metadata.period_start, 10) : null;
   if (recorded === start) return customer;
 
-  await setCustomerMetadata(customer.id, 'reports_used_current_period', '0').catch(() => {});
-  await setCustomerMetadata(customer.id, 'overage_pending', '0').catch(() => {});
-  await setCustomerMetadata(customer.id, 'period_start', String(start)).catch(() => {});
+  // One atomic multi-key write — a partial reset (counter cleared but
+  // period_start not, or vice versa) would strand last period's usage into the
+  // new period. Failure propagates to the callers' try/catch → 500 → retry.
+  await stripePost(`/customers/${customer.id}`, {
+    'metadata[reports_used_current_period]': '0',
+    'metadata[overage_pending]': '0',
+    'metadata[period_start]': String(start),
+  });
   // Reflect the reset in the in-memory object so the caller counts from zero.
   customer.metadata = { ...customer.metadata, reports_used_current_period: '0', overage_pending: '0', period_start: String(start) };
   return customer;
@@ -162,7 +169,14 @@ export function formatPeriodEnd(sub) {
   return new Date(end * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// Update a single metadata field on a customer.
-export async function setCustomerMetadata(customerId, key, value) {
-  return stripePost(`/customers/${customerId}`, { [`metadata[${key}]`]: value });
+// Update customer metadata fields in ONE request. Stripe merges keys, and the
+// single POST is atomic — related fields (a counter and its dedupe marker)
+// either all commit or none do. null/undefined values are skipped by
+// stripePost; pass '' to unset a key.
+export async function setCustomerMetadata(customerId, fields) {
+  const params = {};
+  for (const [key, value] of Object.entries(fields || {})) {
+    params[`metadata[${key}]`] = value;
+  }
+  return stripePost(`/customers/${customerId}`, params);
 }

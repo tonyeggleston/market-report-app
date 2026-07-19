@@ -28,6 +28,11 @@ const check = (label, ok, detail) => {
   if (!ok) failures++;
 };
 
+// Server-side dedupe token: sha256(reportId|completedAt) truncated — retry-stable
+// (queued events replay verbatim) and unique across machines sharing a key.
+const dtok = (reportId, completedAt) =>
+  crypto.createHash('sha256').update(`${reportId}|${completedAt || ''}`).digest('hex').slice(0, 10);
+
 // ── Mock Stripe ─────────────────────────────────────────────────────────────
 const state = {
   customer: null,          // fixture served by /customers/search
@@ -139,10 +144,10 @@ const item = state.invoiceItemCalls[0];
 check('over quota: invoice item created', res.body.overage === true && res.body.billed === true && state.invoiceItemCalls.length === 1);
 check('item is $15.00 usd on the customer', item && item.body.amount === '1500' && item.body.currency === 'usd' && item.body.customer === 'cus_test1');
 check('item description carries address + date', item && /4222 Frank St, Dallas/.test(item.body.description) && /2026-07-16/.test(item.body.description), item?.body.description);
-check('idempotency key derived from reportId', item?.idempotencyKey === 'mp-overage-cus_test1-r16', item?.idempotencyKey);
+check('idempotency key = customer + reportId|completedAt token', item?.idempotencyKey === 'mp-overage-cus_test1-' + dtok('r16', '2026-07-16T12:00:00Z'), item?.idempotencyKey);
 check('overage_pending counter still recorded', state.customer.metadata.overage_pending === '1');
 
-resetState({ used: '15', metadata: { last_report_id: 'r16' } });
+resetState({ used: '15', metadata: { recorded_report_ids: dtok('r16', '') } });
 res = makeRes();
 await reportComplete({ method: 'POST', body: { licenseKey: 'MP-TEST-KEY', reportId: 'r16' } }, res);
 check('same reportId dedupes (no count, no item)', res.body.deduped === true && state.invoiceItemCalls.length === 0 && state.metadataWrites.length === 0);
@@ -225,13 +230,53 @@ console.log('\n=== idempotency namespacing ===');
 resetState({ used: '15' });
 res = makeRes();
 await reportComplete({ method: 'POST', body: { licenseKey: 'MP-TEST-KEY', reportId: 5 } }, res); // numeric rowid
-check('idempotency key includes customer id (cross-install collision fixed)', state.invoiceItemCalls[0]?.idempotencyKey === 'mp-overage-cus_test1-5', state.invoiceItemCalls[0]?.idempotencyKey);
+check('idempotency key includes customer id (cross-install collision fixed)', state.invoiceItemCalls[0]?.idempotencyKey === 'mp-overage-cus_test1-' + dtok(5, ''), state.invoiceItemCalls[0]?.idempotencyKey);
 
 // numeric reportId dedupe (metadata is a string — the === bug)
-resetState({ used: '15', metadata: { last_report_id: '5' } });
+resetState({ used: '15', metadata: { recorded_report_ids: dtok(5, '') } });
 res = makeRes();
 await reportComplete({ method: 'POST', body: { licenseKey: 'MP-TEST-KEY', reportId: 5 } }, res);
 check('numeric reportId dedupes against string metadata', res.body.deduped === true && state.invoiceItemCalls.length === 0);
+
+// ── bounded-set dedupe: multi-event queue replay (the single-slot killer) ───
+console.log('\n=== multi-event queue replay ===');
+// Two events (41, 42) were processed but their responses were lost; the client
+// queue replays BOTH. Under the old single-slot marker, replaying 41 re-counted
+// it AND regressed the marker so 42 re-counted too.
+resetState({ used: '10', metadata: { recorded_report_ids: `${dtok(41, '')},${dtok(42, '')}` } });
+res = makeRes();
+await reportComplete({ method: 'POST', body: { licenseKey: 'MP-TEST-KEY', reportId: 41 } }, res);
+const replay41 = res.body;
+res = makeRes();
+await reportComplete({ method: 'POST', body: { licenseKey: 'MP-TEST-KEY', reportId: 42 } }, res);
+check('replaying a 2-deep stuck queue dedupes BOTH events (no re-count)',
+  replay41.deduped === true && res.body.deduped === true && state.metadataWrites.length === 0);
+
+// A NEW report while old tokens sit in the set still counts.
+res = makeRes();
+await reportComplete({ method: 'POST', body: { licenseKey: 'MP-TEST-KEY', reportId: 43 } }, res);
+check('fresh report alongside old tokens still counts (10→11)', res.body.reportsUsed === 11);
+
+// ── atomic write: counter + dedupe set + timestamp commit together ──────────
+console.log('\n=== atomic usage write ===');
+resetState({ used: '3' });
+res = makeRes();
+await reportComplete({ method: 'POST', body: { licenseKey: 'MP-TEST-KEY', reportId: 'a1', completedAt: '2026-07-19T10:00:00Z' } }, res);
+const w = state.metadataWrites[0] || {};
+check('ONE metadata write carries counter + dedupe set + last_report_at',
+  state.metadataWrites.length === 1 &&
+  w['metadata[reports_used_current_period]'] === '4' &&
+  (w['metadata[recorded_report_ids]'] || '').includes(dtok('a1', '2026-07-19T10:00:00Z')) &&
+  w['metadata[last_report_at]'] === '2026-07-19T10:00:00Z');
+
+// ── dedupe set trims oldest-first under Stripe's 500-char metadata limit ────
+const fatSet = Array.from({ length: 44 }, (_, i) => dtok(`old${i}`, '')).join(',');
+resetState({ used: '3', metadata: { recorded_report_ids: fatSet } });
+res = makeRes();
+await reportComplete({ method: 'POST', body: { licenseKey: 'MP-TEST-KEY', reportId: 'a2' } }, res);
+const storedSet = state.customer.metadata.recorded_report_ids;
+check('set trimmed to <=480 chars, newest token kept, oldest dropped',
+  storedSet.length <= 480 && storedSet.includes(dtok('a2', '')) && !storedSet.includes(dtok('old0', '')));
 
 // ── tolerant overage_rate parsing ───────────────────────────────────────────
 console.log('\n=== tolerant rate parse ===');
@@ -239,6 +284,10 @@ const { parseMoneyish } = await import('../api/_stripe.js');
 check('"$15.00" → 15 (not NaN)', parseMoneyish('$15.00', 99, parseFloat) === 15);
 check('"20" → 20', parseMoneyish('20', 99, parseFloat) === 20);
 check('missing → fallback', parseMoneyish('', 15, parseFloat) === 15 && parseMoneyish(undefined, 15, parseFloat) === 15);
+check('comma-decimal "15,00" → 15 (was 1500 — a 100x overbill)', parseMoneyish('15,00', 99, parseFloat) === 15);
+check('"15,5" → 15.5', parseMoneyish('15,5', 99, parseFloat) === 15.5);
+check('thousands "1,000" → 1000', parseMoneyish('1,000', 99, parseInt) === 1000);
+check('ambiguous "1.000,50" → fallback, never a misparse', parseMoneyish('1.000,50', 15, parseFloat) === 15);
 
 // ── past_due grace window ───────────────────────────────────────────────────
 console.log('\n=== past_due grace ===');
@@ -315,6 +364,27 @@ state.failOpenRouter = true;
 res = await callAi({ token: aiTok, mode: 'vision', content: 'x' });
 check('upstream error → generic 502 (no provider internals leaked)', res.statusCode === 502 && res.body.error === 'AI request failed.' && !/boom/.test(JSON.stringify(res.body)));
 state.failOpenRouter = false;
+
+// Input bounds: a valid token can't spend unbounded input cost.
+res = await callAi({ token: aiTok, mode: 'text', content: 'x'.repeat(64_001) });
+check('oversized text content: 400, no upstream call', res.statusCode === 400 && state.openrouterCalls.length === 0);
+res = await callAi({ token: aiTok, mode: 'vision', content: Array.from({ length: 31 }, () => ({ type: 'text', text: 'x' })) });
+check('>30 content parts: 400', res.statusCode === 400 && state.openrouterCalls.length === 0);
+res = await callAi({ token: aiTok, mode: 'vision', content: [{ type: 'image_url', image_url: { url: 'https://evil.example/x.jpg' } }] });
+check('non-data-URI image part rejected (no SSRF via proxy)', res.statusCode === 400 && state.openrouterCalls.length === 0);
+res = await callAi({ token: aiTok, mode: 'vision', content: [{ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,abc' } }, { type: 'text', text: 'describe' }] });
+check('legit data-URI + text parts pass', res.statusCode === 200 && state.openrouterCalls.length === 1);
+res = await callAi({ token: aiTok, mode: 'text', content: 'x', max_tokens: -5 });
+check('negative max_tokens clamped to >=1', state.openrouterCalls[0]?.max_tokens === 1);
+
+// Per-license ceiling engages on the VERIFIED token identity (the AI body has
+// no licenseKey field, so the generic per-key branch never fired here).
+let hit429 = false;
+for (let i = 0; i < 245; i++) {
+  const r = await callAi({ token: aiTok, mode: 'text', content: 'x' });
+  if (r.statusCode === 429) { hit429 = true; break; }
+}
+check('per-license limit engages on verified token (240/min → 429)', hit429);
 
 // ── rate limiter ────────────────────────────────────────────────────────────
 console.log('\n=== rate limiter ===');
